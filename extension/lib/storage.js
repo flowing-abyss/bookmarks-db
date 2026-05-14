@@ -1,6 +1,6 @@
 const DEFAULTS = {
   bgColor: '#1a1a2e',
-  openInNewTab: false
+  openInBackground: true
 };
 
 export async function loadSettings() {

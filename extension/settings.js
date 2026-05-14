@@ -3,7 +3,7 @@ import { computeColorScheme } from './lib/colors.js';
 
 const DEFAULTS = {
   bgColor: '#1a1a2e',
-  openInNewTab: false
+  openInBackground: true
 };
 
 async function init() {
@@ -14,7 +14,7 @@ async function init() {
   const openInNewTabInput = document.getElementById('open-in-new-tab');
   
   bgColorInput.value = settings.bgColor;
-  openInNewTabInput.checked = settings.openInNewTab;
+  openInNewTabInput.checked = !settings.openInBackground;
   updatePreview(settings.bgColor);
   
   bgColorInput.addEventListener('input', (e) => {
@@ -24,7 +24,7 @@ async function init() {
   document.getElementById('save-settings').addEventListener('click', async () => {
     await saveSettings({
       bgColor: bgColorInput.value,
-      openInNewTab: openInNewTabInput.checked
+      openInBackground: !openInNewTabInput.checked
     });
     alert('Settings saved!');
   });
@@ -32,7 +32,7 @@ async function init() {
   document.getElementById('reset-settings').addEventListener('click', async () => {
     await saveSettings(DEFAULTS);
     bgColorInput.value = DEFAULTS.bgColor;
-    openInNewTabInput.checked = DEFAULTS.openInNewTab;
+    openInNewTabInput.checked = !DEFAULTS.openInBackground;
     updatePreview(DEFAULTS.bgColor);
     alert('Settings reset to defaults');
   });

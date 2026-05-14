@@ -7,6 +7,7 @@ class App {
     this.bookmarks = new BookmarksService();
     this.selectedIndex = -1;
     this.flatBookmarks = [];
+    this.collapsedFolders = new Set();
   }
 
   async init() {
@@ -86,6 +87,9 @@ class App {
       const content = document.createElement('div');
       content.className = 'folder-content';
       content.id = `folder-${folderIndex}`;
+      if (this.collapsedFolders.has(folderIndex)) {
+        content.style.display = 'none';
+      }
 
       bookmarks.forEach((b, itemIndex) => {
         const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
@@ -198,7 +202,7 @@ class App {
     const settings = await loadSettings();
     await chrome.tabs.create({
       url: bookmark.url,
-      active: !settings.openInNewTab
+      active: !settings.openInBackground
     });
   }
 
@@ -285,9 +289,13 @@ class App {
 
   toggleFolder(index) {
     const content = document.getElementById(`folder-${index}`);
-    if (content) {
-      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    if (!content) return;
+    if (this.collapsedFolders.has(index)) {
+      this.collapsedFolders.delete(index);
+    } else {
+      this.collapsedFolders.add(index);
     }
+    content.style.display = this.collapsedFolders.has(index) ? 'none' : 'block';
   }
 }
 
