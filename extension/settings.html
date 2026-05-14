@@ -1,51 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bookmarks DB - Settings</title>
-  <link rel="stylesheet" href="styles/main.css">
-</head>
-<body>
-  <div class="settings-container">
-    <h1>Settings</h1>
-    
-    <div class="settings-section">
-      <h2>Appearance</h2>
-      <div class="form-group">
-        <label>Background Color</label>
-        <div class="color-picker-wrapper">
-          <input type="color" id="bg-color" value="#1a1a2e">
-          <div class="color-preview" id="color-preview"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bookmarks DB - Settings</title>
+    <link rel="stylesheet" href="styles/main.css" />
+  </head>
+  <body>
+    <div class="settings-container">
+      <h1>Settings</h1>
+
+      <div class="settings-section">
+        <h2>Appearance</h2>
+        <div class="form-group">
+          <label>Background Color</label>
+          <div class="color-picker-wrapper">
+            <input type="color" id="bg-color" value="#1a1a2e" />
+            <div class="color-preview" id="color-preview"></div>
+          </div>
         </div>
       </div>
-    </div>
-    
-    <div class="settings-section">
-      <h2>Data Source</h2>
-      <div class="form-group">
-        <label>Root Folder (display bookmarks from this folder)</label>
-        <select id="root-folder">
-          <option value="">All Bookmarks</option>
-        </select>
+
+      <div class="settings-section">
+        <h2>Data Source</h2>
+        <div class="form-group">
+          <label>Root Folder (display bookmarks from this folder)</label>
+          <select id="root-folder">
+            <option value="">All Bookmarks</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2>Behavior</h2>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="open-in-new-tab" />
+            <span>Open bookmarks in background tab</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" id="save-settings">Save</button>
+        <button class="btn btn-secondary" id="reset-settings">Reset to Defaults</button>
       </div>
     </div>
-    
-    <div class="settings-section">
-      <h2>Behavior</h2>
-      <div class="form-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="open-in-new-tab">
-          <span>Open bookmarks in background tab</span>
-        </label>
-      </div>
-    </div>
-    
-    <div class="settings-actions">
-      <button class="btn btn-primary" id="save-settings">Save</button>
-      <button class="btn btn-secondary" id="reset-settings">Reset to Defaults</button>
-    </div>
-  </div>
-  <script type="module" src="settings.js"></script>
-</body>
+    <script type="module" src="settings.js"></script>
+  </body>
 </html>

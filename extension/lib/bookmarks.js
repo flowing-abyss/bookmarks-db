@@ -26,10 +26,10 @@ export class BookmarksService {
           title: node.title,
           url: node.url,
           domain,
-          parentPath: [...parentPath]
+          parentPath: [...parentPath],
         };
         this.bookmarks.push(bookmark);
-        
+
         const folderKey = parentPath.join(' / ') || 'Other';
         if (!this.folders.has(folderKey)) {
           this.folders.set(folderKey, []);
@@ -47,14 +47,14 @@ export class BookmarksService {
     function traverse(node, depth = 0, parentPath = []) {
       if (node.children && node.children.length > 0) {
         // Only add folders that have bookmark children or subfolders
-        const hasBookmarks = node.children.some(c => c.url);
-        const hasSubfolders = node.children.some(c => c.children);
+        const hasBookmarks = node.children.some((c) => c.url);
+        const hasSubfolders = node.children.some((c) => c.children);
         if (hasBookmarks || hasSubfolders) {
           folders.push({
             id: node.id,
             title: node.title || 'Untitled',
             depth,
-            path: [...parentPath, node.title || 'Untitled'].join(' / ')
+            path: [...parentPath, node.title || 'Untitled'].join(' / '),
           });
         }
         for (const child of node.children) {
@@ -90,7 +90,9 @@ export class BookmarksService {
     this.bookmarks = [];
     this.folders = new Map();
     const children = rootNode.children || [];
-    this.parseTree(children, []);
+    // Include root folder name in path so bookmarks don't go to "Other"
+    const rootName = rootNode.title || 'Root';
+    this.parseTree(children, [rootName]);
   }
 
   resetFilter() {
@@ -109,13 +111,14 @@ export class BookmarksService {
   search(query) {
     const q = query.toLowerCase().trim();
     if (!q) return Array.from(this.folders.entries());
-    
+
     const filtered = new Map();
     for (const [folder, bookmarks] of this.folders.entries()) {
-      const matched = bookmarks.filter(b => 
-        b.title.toLowerCase().includes(q) || 
-        b.domain.toLowerCase().includes(q) ||
-        b.url.toLowerCase().includes(q)
+      const matched = bookmarks.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.domain.toLowerCase().includes(q) ||
+          b.url.toLowerCase().includes(q)
       );
       if (matched.length > 0) {
         filtered.set(folder, matched);
@@ -126,15 +129,18 @@ export class BookmarksService {
 
   async remove(id) {
     await chrome.bookmarks.remove(id);
-    this.bookmarks = this.bookmarks.filter(b => b.id !== id);
+    this.bookmarks = this.bookmarks.filter((b) => b.id !== id);
     for (const [folder, bookmarks] of this.folders.entries()) {
-      this.folders.set(folder, bookmarks.filter(b => b.id !== id));
+      this.folders.set(
+        folder,
+        bookmarks.filter((b) => b.id !== id)
+      );
     }
   }
 
   async update(id, updates) {
     await chrome.bookmarks.update(id, updates);
-    const bookmark = this.bookmarks.find(b => b.id === id);
+    const bookmark = this.bookmarks.find((b) => b.id === id);
     if (bookmark) {
       Object.assign(bookmark, updates);
       if (updates.url) {
