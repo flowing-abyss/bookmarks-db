@@ -11,10 +11,10 @@ async function init() {
   
   const bgColorInput = document.getElementById('bg-color');
   const colorPreview = document.getElementById('color-preview');
-  const openInNewTabInput = document.getElementById('open-in-new-tab');
+  const openInBackgroundInput = document.getElementById('open-in-new-tab');
   
   bgColorInput.value = settings.bgColor;
-  openInNewTabInput.checked = !settings.openInBackground;
+  openInBackgroundInput.checked = settings.openInBackground;
   updatePreview(settings.bgColor);
   
   bgColorInput.addEventListener('input', (e) => {
@@ -24,7 +24,7 @@ async function init() {
   document.getElementById('save-settings').addEventListener('click', async () => {
     await saveSettings({
       bgColor: bgColorInput.value,
-      openInBackground: !openInNewTabInput.checked
+      openInBackground: openInBackgroundInput.checked
     });
     alert('Settings saved!');
   });
@@ -32,7 +32,7 @@ async function init() {
   document.getElementById('reset-settings').addEventListener('click', async () => {
     await saveSettings(DEFAULTS);
     bgColorInput.value = DEFAULTS.bgColor;
-    openInNewTabInput.checked = !DEFAULTS.openInBackground;
+    openInBackgroundInput.checked = DEFAULTS.openInBackground;
     updatePreview(DEFAULTS.bgColor);
     alert('Settings reset to defaults');
   });

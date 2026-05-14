@@ -15,7 +15,7 @@ class App {
     this.applyColorScheme(settings.bgColor);
     await this.bookmarks.load();
     this.render();
-    this.bindEvents();
+    this.setListeners();
   }
 
   applyColorScheme(bgColor) {
@@ -111,31 +111,6 @@ class App {
     return offset + itemIndex;
   }
 
-  bindEvents() {
-    document.getElementById('search').addEventListener('input', (e) => {
-      this.renderSearch(e.target.value);
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.key === 'j') {
-        e.preventDefault();
-        this.navigate(1);
-      } else if (e.ctrlKey && e.key === 'k') {
-        e.preventDefault();
-        this.navigate(-1);
-      } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.openSelected();
-      } else if (e.ctrlKey && e.key === 'd' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.deleteSelected();
-      } else if (e.ctrlKey && e.key === 'e' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.editSelected();
-      }
-    });
-  }
-
   renderSearch(query) {
     const results = this.bookmarks.search(query);
     this.flatBookmarks = results.flatMap(([, bookmarks]) => bookmarks);
@@ -162,8 +137,10 @@ class App {
       const content = document.createElement('div');
       content.className = 'folder-content';
 
-      bookmarks.forEach((b) => {
-        content.appendChild(this.createBookmarkElement(b, folderIndex, 0, false));
+      bookmarks.forEach((b, itemIndex) => {
+        const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
+        const isSelected = this.selectedIndex === globalIdx;
+        content.appendChild(this.createBookmarkElement(b, folderIndex, itemIndex, isSelected));
       });
 
       group.appendChild(header);
@@ -175,9 +152,14 @@ class App {
   navigate(direction) {
     const newIndex = this.selectedIndex + direction;
     if (newIndex >= 0 && newIndex < this.flatBookmarks.length) {
+      const prev = document.querySelector('.bookmark-item.selected');
+      if (prev) prev.classList.remove('selected');
       this.selectedIndex = newIndex;
-      this.render();
-      this.scrollToSelected();
+      const next = document.querySelectorAll('.bookmark-item')[newIndex];
+      if (next) {
+        next.classList.add('selected');
+        next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
     }
   }
 
@@ -186,6 +168,34 @@ class App {
     if (selected) {
       selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+  }
+
+  setListeners() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modal = document.querySelector('.modal-overlay');
+        if (modal) {
+          modal.remove();
+          return;
+        }
+      }
+      if (e.ctrlKey && e.key === 'j') {
+        e.preventDefault();
+        this.navigate(1);
+      } else if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        this.navigate(-1);
+      } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
+        e.preventDefault();
+        this.openSelected();
+      } else if (e.ctrlKey && e.key === 'd' && this.selectedIndex >= 0) {
+        e.preventDefault();
+        this.deleteSelected();
+      } else if (e.ctrlKey && e.key === 'e' && this.selectedIndex >= 0) {
+        e.preventDefault();
+        this.editSelected();
+      }
+    });
   }
 
   openSelected() {

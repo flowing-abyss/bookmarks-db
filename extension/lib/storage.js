@@ -4,15 +4,9 @@ const DEFAULTS = {
 };
 
 export async function loadSettings() {
-  return new Promise((resolve) => {
-    chrome.storage.sync.get(DEFAULTS, (settings) => {
-      resolve(settings);
-    });
-  });
+  return chrome.storage.sync.get(DEFAULTS);
 }
 
 export async function saveSettings(settings) {
-  return new Promise((resolve) => {
-    chrome.storage.sync.set(settings, resolve);
-  });
+  return chrome.storage.sync.set(settings);
 }
