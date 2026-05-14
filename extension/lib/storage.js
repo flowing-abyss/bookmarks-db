@@ -1,6 +1,7 @@
 const DEFAULTS = {
   bgColor: '#1a1a2e',
-  openInBackground: true
+  openInBackground: true,
+  rootFolderId: null
 };
 
 export async function loadSettings() {

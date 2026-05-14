@@ -22,17 +22,27 @@
     </div>
     
     <div class="settings-section">
-      <h2>Behavior</h2>
+      <h2>Data Source</h2>
       <div class="form-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="open-in-new-tab">
-          <span>Open bookmarks in background (keep bookmarks page open)</span>
-        </label>
+        <label>Root Folder (display bookmarks from this folder)</label>
+        <select id="root-folder">
+          <option value="">All Bookmarks</option>
+        </select>
       </div>
     </div>
     
     <div class="settings-section">
-      <button class="btn btn-primary" id="save-settings">Save Settings</button>
+      <h2>Behavior</h2>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="open-in-new-tab">
+          <span>Open bookmarks in background tab</span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="settings-actions">
+      <button class="btn btn-primary" id="save-settings">Save</button>
       <button class="btn btn-secondary" id="reset-settings">Reset to Defaults</button>
     </div>
   </div>

@@ -1,6 +1,6 @@
-import { BookmarksService } from './lib/bookmarks.js';
-import { computeColorScheme } from './lib/colors.js';
-import { loadSettings } from './lib/storage.js';
+import { BookmarksService } from "./lib/bookmarks.js";
+import { computeColorScheme } from "./lib/colors.js";
+import { loadSettings } from "./lib/storage.js";
 
 class App {
   constructor() {
@@ -14,8 +14,22 @@ class App {
     const settings = await loadSettings();
     this.applyColorScheme(settings.bgColor);
     await this.bookmarks.load();
+
+    // Apply root folder filter
+    if (settings.rootFolderId) {
+      this.bookmarks.filterByRoot(settings.rootFolderId);
+    }
+
+    // Collapse all folders by default
+    const results = this.bookmarks.search('');
+    results.forEach((_, i) => this.collapsedFolders.add(i));
+
     this.render();
     this.setListeners();
+
+    // Explicit focus (autofocus doesn't work on newtab)
+    const searchInput = document.getElementById("search");
+    if (searchInput) searchInput.focus();
   }
 
   applyColorScheme(bgColor) {
@@ -26,33 +40,43 @@ class App {
   }
 
   escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
-    return div.textContent || '';
+    return div.textContent || "";
   }
 
-  createBookmarkElement(b, folderIndex, itemIndex, isSelected) {
-    const item = document.createElement('div');
-    item.className = 'bookmark-item' + (isSelected ? ' selected' : '');
-    item.dataset.folder = String(folderIndex);
-    item.dataset.index = String(itemIndex);
+  createBookmarkElement(b, isSelected) {
+    const item = document.createElement("div");
+    item.className = "bookmark-item" + (isSelected ? " selected" : "");
     item.dataset.id = b.id;
-    item.addEventListener('click', () => this.openBookmark(b.id));
+    item.addEventListener("click", () => this.openBookmark(b.id));
+    item.addEventListener("auxclick", (e) => {
+      // Middle click (wheel) - open in new tab
+      if (e.button === 1) {
+        e.preventDefault();
+        this.openBookmarkInNewTab(b.id);
+      }
+    });
 
-    const favicon = document.createElement('img');
-    favicon.className = 'bookmark-favicon';
+    const favicon = document.createElement("img");
+    favicon.className = "bookmark-favicon";
     favicon.src = `https://www.google.com/s2/favicons?domain=${b.domain}&sz=32`;
-    favicon.alt = '';
+    favicon.alt = "";
     favicon.onerror = () => {
-      favicon.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><rect width="28" height="28" fill="%23666"/></svg>';
+      // Fallback: colored circle with first letter
+      const letter = (b.title || b.domain || '?')[0].toUpperCase();
+      const hue = hashCode(b.domain || b.title) % 360;
+      const color = `hsl(${hue}, 60%, 55%)`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" rx="4" fill="${encodeURIComponent(color)}"/><text x="14" y="20" text-anchor="middle" fill="white" font-size="14" font-family="system-ui,sans-serif" font-weight="600">${letter}</text></svg>`;
+      favicon.src = `data:image/svg+xml,${svg}`;
     };
 
-    const title = document.createElement('span');
-    title.className = 'bookmark-title';
+    const title = document.createElement("span");
+    title.className = "bookmark-title";
     title.textContent = b.title;
 
-    const domain = document.createElement('span');
-    domain.className = 'bookmark-domain';
+    const domain = document.createElement("span");
+    domain.className = "bookmark-domain";
     domain.textContent = b.domain;
 
     item.appendChild(favicon);
@@ -65,36 +89,41 @@ class App {
     const results = this.bookmarks.search('');
     this.flatBookmarks = results.flatMap(([, bookmarks]) => bookmarks);
 
-    const container = document.getElementById('bookmarks-list');
+    const container = document.getElementById("bookmarks-list");
     container.textContent = '';
 
     results.forEach(([folder, bookmarks], folderIndex) => {
-      const group = document.createElement('div');
-      group.className = 'folder-group';
+      const group = document.createElement("div");
+      group.className = "folder-group";
       group.dataset.folderIndex = String(folderIndex);
 
-      const header = document.createElement('div');
-      header.className = 'folder-header';
-      header.addEventListener('click', () => this.toggleFolder(folderIndex));
+      const header = document.createElement("div");
+      header.className = "folder-header";
+      header.addEventListener("click", () => this.toggleFolder(folderIndex));
 
-      const folderIcon = document.createElement('span');
-      folderIcon.textContent = '📁';
-      const folderText = document.createElement('span');
+      const folderIcon = document.createElement("span");
+      folderIcon.textContent = "▸";
+      folderIcon.className = "folder-arrow";
+      const folderText = document.createElement("span");
       folderText.textContent = folder;
+      const folderCount = document.createElement("span");
+      folderCount.className = "folder-count";
+      folderCount.textContent = `${bookmarks.length}`;
       header.appendChild(folderIcon);
       header.appendChild(folderText);
+      header.appendChild(folderCount);
 
-      const content = document.createElement('div');
-      content.className = 'folder-content';
+      const content = document.createElement("div");
+      content.className = "folder-content";
       content.id = `folder-${folderIndex}`;
       if (this.collapsedFolders.has(folderIndex)) {
-        content.style.display = 'none';
+        content.style.display = "none";
       }
 
       bookmarks.forEach((b, itemIndex) => {
         const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
         const isSelected = this.selectedIndex === globalIdx;
-        content.appendChild(this.createBookmarkElement(b, folderIndex, itemIndex, isSelected));
+        content.appendChild(this.createBookmarkElement(b, isSelected));
       });
 
       group.appendChild(header);
@@ -118,29 +147,34 @@ class App {
       this.selectedIndex = this.flatBookmarks.length - 1;
     }
 
-    const container = document.getElementById('bookmarks-list');
+    const container = document.getElementById("bookmarks-list");
     container.textContent = '';
 
     results.forEach(([folder, bookmarks], folderIndex) => {
-      const group = document.createElement('div');
-      group.className = 'folder-group';
+      const group = document.createElement("div");
+      group.className = "folder-group";
 
-      const header = document.createElement('div');
-      header.className = 'folder-header';
-      const folderIcon = document.createElement('span');
-      folderIcon.textContent = '📁';
-      const folderText = document.createElement('span');
+      const header = document.createElement("div");
+      header.className = "folder-header";
+      const folderIcon = document.createElement("span");
+      folderIcon.textContent = "▸";
+      folderIcon.className = "folder-arrow";
+      const folderText = document.createElement("span");
       folderText.textContent = folder;
+      const folderCount = document.createElement("span");
+      folderCount.className = "folder-count";
+      folderCount.textContent = `${bookmarks.length}`;
       header.appendChild(folderIcon);
       header.appendChild(folderText);
+      header.appendChild(folderCount);
 
-      const content = document.createElement('div');
-      content.className = 'folder-content';
+      const content = document.createElement("div");
+      content.className = "folder-content";
 
       bookmarks.forEach((b, itemIndex) => {
         const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
         const isSelected = this.selectedIndex === globalIdx;
-        content.appendChild(this.createBookmarkElement(b, folderIndex, itemIndex, isSelected));
+        content.appendChild(this.createBookmarkElement(b, isSelected));
       });
 
       group.appendChild(header);
@@ -152,48 +186,67 @@ class App {
   navigate(direction) {
     const newIndex = this.selectedIndex + direction;
     if (newIndex >= 0 && newIndex < this.flatBookmarks.length) {
-      const prev = document.querySelector('.bookmark-item.selected');
-      if (prev) prev.classList.remove('selected');
+      const prev = document.querySelector(".bookmark-item.selected");
+      if (prev) prev.classList.remove("selected");
       this.selectedIndex = newIndex;
-      const next = document.querySelectorAll('.bookmark-item')[newIndex];
+      const next = document.querySelectorAll(".bookmark-item")[newIndex];
       if (next) {
-        next.classList.add('selected');
-        next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        next.classList.add("selected");
+        next.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
     }
   }
 
-  scrollToSelected() {
-    const selected = document.querySelector('.bookmark-item.selected');
-    if (selected) {
-      selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }
-
   setListeners() {
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        const modal = document.querySelector('.modal-overlay');
+    const searchInput = document.getElementById("search");
+    searchInput.addEventListener("input", (e) => {
+      this.renderSearch(e.target.value);
+    });
+
+    // Settings button
+    const settingsBtn = document.getElementById("settings-btn");
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL("settings.html") });
+      });
+    }
+
+    // Keyboard navigation
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const modal = document.querySelector(".modal-overlay");
         if (modal) {
           modal.remove();
           return;
         }
       }
-      if (e.ctrlKey && e.key === 'j') {
+      if (e.ctrlKey && e.key === "j") {
         e.preventDefault();
         this.navigate(1);
-      } else if (e.ctrlKey && e.key === 'k') {
+      } else if (e.ctrlKey && e.key === "k") {
         e.preventDefault();
         this.navigate(-1);
-      } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
+      } else if (e.key === "Enter" && this.selectedIndex >= 0) {
         e.preventDefault();
         this.openSelected();
-      } else if (e.ctrlKey && e.key === 'd' && this.selectedIndex >= 0) {
+      } else if (e.ctrlKey && e.key === "d" && this.selectedIndex >= 0) {
         e.preventDefault();
         this.deleteSelected();
-      } else if (e.ctrlKey && e.key === 'e' && this.selectedIndex >= 0) {
+      } else if (e.ctrlKey && e.key === "e" && this.selectedIndex >= 0) {
         e.preventDefault();
         this.editSelected();
+      }
+    });
+
+    // Mouse wheel navigation (when search is empty)
+    document.addEventListener("wheel", (e) => {
+      const searchInput = document.getElementById("search");
+      if (document.activeElement !== searchInput || !searchInput.value) {
+        if (e.deltaY > 10) {
+          this.navigate(1);
+        } else if (e.deltaY < -10) {
+          this.navigate(-1);
+        }
       }
     });
   }
@@ -206,13 +259,24 @@ class App {
   }
 
   async openBookmark(id) {
-    const bookmark = this.bookmarks.bookmarks.find(b => b.id === id);
+    const bookmark = this.bookmarks.bookmarks.find((b) => b.id === id);
     if (!bookmark) return;
 
     const settings = await loadSettings();
     await chrome.tabs.create({
       url: bookmark.url,
-      active: !settings.openInBackground
+      active: !settings.openInBackground,
+    });
+  }
+
+  async openBookmarkInNewTab(id) {
+    // Always open in new active tab
+    const bookmark = this.bookmarks.bookmarks.find((b) => b.id === id);
+    if (!bookmark) return;
+
+    await chrome.tabs.create({
+      url: bookmark.url,
+      active: true,
     });
   }
 
@@ -231,50 +295,50 @@ class App {
     const bookmark = this.flatBookmarks[this.selectedIndex];
     if (!bookmark) return;
 
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
 
-    const modal = document.createElement('div');
-    modal.className = 'modal';
+    const modal = document.createElement("div");
+    modal.className = "modal";
 
-    const title = document.createElement('h2');
-    title.textContent = 'Edit Bookmark';
+    const title = document.createElement("h2");
+    title.textContent = "Edit Bookmark";
 
-    const titleGroup = document.createElement('div');
-    titleGroup.className = 'form-group';
-    const titleLabel = document.createElement('label');
-    titleLabel.textContent = 'Title';
-    const titleInput = document.createElement('input');
-    titleInput.type = 'text';
-    titleInput.id = 'edit-title';
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "form-group";
+    const titleLabel = document.createElement("label");
+    titleLabel.textContent = "Title";
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.id = "edit-title";
     titleInput.value = bookmark.title;
     titleGroup.appendChild(titleLabel);
     titleGroup.appendChild(titleInput);
 
-    const urlGroup = document.createElement('div');
-    urlGroup.className = 'form-group';
-    const urlLabel = document.createElement('label');
-    urlLabel.textContent = 'URL';
-    const urlInput = document.createElement('input');
-    urlInput.type = 'url';
-    urlInput.id = 'edit-url';
+    const urlGroup = document.createElement("div");
+    urlGroup.className = "form-group";
+    const urlLabel = document.createElement("label");
+    urlLabel.textContent = "URL";
+    const urlInput = document.createElement("input");
+    urlInput.type = "url";
+    urlInput.id = "edit-url";
     urlInput.value = bookmark.url;
     urlGroup.appendChild(urlLabel);
     urlGroup.appendChild(urlInput);
 
-    const actions = document.createElement('div');
-    actions.className = 'modal-actions';
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.addEventListener('click', () => overlay.remove());
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn btn-secondary";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", () => overlay.remove());
 
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'btn btn-primary';
-    saveBtn.id = 'save-edit';
-    saveBtn.textContent = 'Save';
-    saveBtn.addEventListener('click', async () => {
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "btn btn-primary";
+    saveBtn.id = "save-edit";
+    saveBtn.textContent = "Save";
+    saveBtn.addEventListener("click", async () => {
       const newTitle = titleInput.value.trim();
       const newUrl = urlInput.value.trim();
       if (newTitle && newUrl) {
@@ -305,8 +369,19 @@ class App {
     } else {
       this.collapsedFolders.add(index);
     }
-    content.style.display = this.collapsedFolders.has(index) ? 'none' : 'block';
+    content.style.display = this.collapsedFolders.has(index) ? "none" : "block";
   }
+}
+
+// Hash function for consistent colors
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
 }
 
 const app = new App();

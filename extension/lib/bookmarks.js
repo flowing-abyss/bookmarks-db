@@ -2,11 +2,18 @@ export class BookmarksService {
   constructor() {
     this.bookmarks = [];
     this.folders = new Map();
+    this.allBookmarks = [];
+    this.allFolders = new Map();
   }
 
   async load() {
     const tree = await chrome.bookmarks.getTree();
+    // Save full tree for root folder selection
+    this.fullTree = tree[0];
     this.parseTree(tree[0].children || [], []);
+    // Save copies of all bookmarks
+    this.allBookmarks = [...this.bookmarks];
+    this.allFolders = new Map(this.folders);
     return this;
   }
 
@@ -34,6 +41,63 @@ export class BookmarksService {
     }
   }
 
+  getFolderTree() {
+    // Build a flat list of all folders with their IDs for the settings dropdown
+    const folders = [];
+    function traverse(node, depth = 0, parentPath = []) {
+      if (node.children && node.children.length > 0) {
+        // Only add folders that have bookmark children or subfolders
+        const hasBookmarks = node.children.some(c => c.url);
+        const hasSubfolders = node.children.some(c => c.children);
+        if (hasBookmarks || hasSubfolders) {
+          folders.push({
+            id: node.id,
+            title: node.title || 'Untitled',
+            depth,
+            path: [...parentPath, node.title || 'Untitled'].join(' / ')
+          });
+        }
+        for (const child of node.children) {
+          if (!child.url) {
+            traverse(child, depth + 1, [...parentPath, node.title || 'Untitled']);
+          }
+        }
+      }
+    }
+    if (this.fullTree) {
+      traverse(this.fullTree);
+    }
+    return folders;
+  }
+
+  filterByRoot(rootId) {
+    // Find the folder node by ID in the full tree
+    function findNode(node, id) {
+      if (node.id === id) return node;
+      if (node.children) {
+        for (const child of node.children) {
+          const found = findNode(child, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    const rootNode = findNode(this.fullTree, rootId);
+    if (!rootNode) return;
+
+    // Reset and re-parse only from the root node
+    this.bookmarks = [];
+    this.folders = new Map();
+    const children = rootNode.children || [];
+    this.parseTree(children, []);
+  }
+
+  resetFilter() {
+    this.bookmarks = [...this.allBookmarks];
+    this.folders = new Map(this.allFolders);
+  }
+
   extractDomain(url) {
     try {
       return new URL(url).hostname.replace('www.', '');
@@ -50,7 +114,8 @@ export class BookmarksService {
     for (const [folder, bookmarks] of this.folders.entries()) {
       const matched = bookmarks.filter(b => 
         b.title.toLowerCase().includes(q) || 
-        b.domain.toLowerCase().includes(q)
+        b.domain.toLowerCase().includes(q) ||
+        b.url.toLowerCase().includes(q)
       );
       if (matched.length > 0) {
         filtered.set(folder, matched);
