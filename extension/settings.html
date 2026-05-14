@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmarks DB - Settings</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="settings-container">
+    <h1>Settings</h1>
+    
+    <div class="settings-section">
+      <h2>Appearance</h2>
+      <div class="form-group">
+        <label>Background Color</label>
+        <div class="color-picker-wrapper">
+          <input type="color" id="bg-color" value="#1a1a2e">
+          <div class="color-preview" id="color-preview"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="settings-section">
+      <h2>Behavior</h2>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="open-in-new-tab">
+          <span>Open bookmarks in new tab (instead of background)</span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="settings-section">
+      <button class="btn btn-primary" id="save-settings">Save Settings</button>
+      <button class="btn btn-secondary" id="reset-settings">Reset to Defaults</button>
+    </div>
+  </div>
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

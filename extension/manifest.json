@@ -13,5 +13,6 @@
   ],
   "action": {
     "default_title": "Bookmarks DB Settings"
-  }
+  },
+  "options_page": "settings.html"
 }
