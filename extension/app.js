@@ -201,32 +201,36 @@ class App {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const modal = document.querySelector('.modal-overlay');
-        if (modal) { modal.remove(); return; }
+        if (modal) {
+          modal.remove();
+          return;
+        }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
-        e.preventDefault(); this.navigate(1);
+        e.preventDefault();
+        this.navigate(1);
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault(); this.navigate(-1);
+        e.preventDefault();
+        this.navigate(-1);
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault(); this.navigate(1);
+        e.preventDefault();
+        this.navigate(1);
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault(); this.navigate(-1);
+        e.preventDefault();
+        this.navigate(-1);
       } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
-        e.preventDefault(); this.openSelected();
+        e.preventDefault();
+        this.openSelected();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'd' && this.selectedIndex >= 0) {
-        e.preventDefault(); this.deleteSelected();
+        e.preventDefault();
+        this.deleteSelected();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'e' && this.selectedIndex >= 0) {
-        e.preventDefault(); this.editSelected();
+        e.preventDefault();
+        this.editSelected();
       }
     });
 
-    document.addEventListener('wheel', (e) => {
-      const searchInput = document.getElementById('search');
-      if (document.activeElement !== searchInput || !searchInput.value) {
-        if (e.deltaY > 10) this.navigate(1);
-        else if (e.deltaY < -10) this.navigate(-1);
-      }
-    });
+    // No wheel navigation — conflicts with trackpad scrolling
   }
 
   openSelected() {
@@ -339,7 +343,7 @@ function hashCode(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash |= 0;
   }
   return Math.abs(hash);

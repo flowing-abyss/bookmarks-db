@@ -129,10 +129,11 @@ export class BookmarksService {
 
   _filterBookmarks(bookmarks, q) {
     if (!q) return bookmarks;
-    return bookmarks.filter(b =>
-      b.title.toLowerCase().includes(q) ||
-      b.domain.toLowerCase().includes(q) ||
-      b.url.toLowerCase().includes(q)
+    return bookmarks.filter(
+      (b) =>
+        b.title.toLowerCase().includes(q) ||
+        b.domain.toLowerCase().includes(q) ||
+        b.url.toLowerCase().includes(q)
     );
   }
 
@@ -163,7 +164,10 @@ export class BookmarksService {
     this.bookmarks = this.bookmarks.filter((b) => b.id !== id);
     this.rootBookmarks = this.rootBookmarks.filter((b) => b.id !== id);
     for (const [folder, bookmarks] of this.folders.entries()) {
-      this.folders.set(folder, bookmarks.filter((b) => b.id !== id));
+      this.folders.set(
+        folder,
+        bookmarks.filter((b) => b.id !== id)
+      );
     }
   }
 
