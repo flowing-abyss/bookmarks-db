@@ -4,6 +4,7 @@ export class BookmarksService {
     this.folders = new Map();
     this.allBookmarks = [];
     this.allFolders = new Map();
+    this.rootFolderName = null;
   }
 
   async load() {
@@ -71,7 +72,6 @@ export class BookmarksService {
   }
 
   filterByRoot(rootId) {
-    // Find the folder node by ID in the full tree
     function findNode(node, id) {
       if (node.id === id) return node;
       if (node.children) {
@@ -86,12 +86,12 @@ export class BookmarksService {
     const rootNode = findNode(this.fullTree, rootId);
     if (!rootNode) return;
 
-    // Reset and re-parse only from the root node
+    const rootName = rootNode.title || 'Root';
+    this.rootFolderName = rootName;
     this.bookmarks = [];
     this.folders = new Map();
     const children = rootNode.children || [];
-    // Include root folder name in path so bookmarks don't go to "Other"
-    const rootName = rootNode.title || 'Root';
+    // Use root name as parent path so direct bookmarks show under root name, not "Other"
     this.parseTree(children, [rootName]);
   }
 

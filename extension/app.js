@@ -41,7 +41,6 @@ class App {
     item.dataset.id = b.id;
     item.addEventListener('click', () => this.openBookmark(b.id));
     item.addEventListener('auxclick', (e) => {
-      // Middle click (wheel) - open in new tab
       if (e.button === 1) {
         e.preventDefault();
         this.openBookmarkInNewTab(b.id);
@@ -50,16 +49,9 @@ class App {
 
     const favicon = document.createElement('img');
     favicon.className = 'bookmark-favicon';
-    favicon.src = `https://www.google.com/s2/favicons?domain=${b.domain}&sz=32`;
     favicon.alt = '';
-    favicon.onerror = () => {
-      // Fallback: colored circle with first letter
-      const letter = (b.title || b.domain || '?')[0].toUpperCase();
-      const hue = hashCode(b.domain || b.title) % 360;
-      const color = `hsl(${hue}, 60%, 55%)`;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" rx="4" fill="${encodeURIComponent(color)}"/><text x="14" y="20" text-anchor="middle" fill="white" font-size="14" font-family="system-ui,sans-serif" font-weight="600">${letter}</text></svg>`;
-      favicon.src = `data:image/svg+xml,${svg}`;
-    };
+    favicon.loading = 'lazy';
+    this.setFavicon(favicon, b.domain, b.title);
 
     const title = document.createElement('span');
     title.className = 'bookmark-title';
@@ -73,6 +65,20 @@ class App {
     item.appendChild(title);
     item.appendChild(domain);
     return item;
+  }
+
+  setFavicon(imgEl, domain, title) {
+    imgEl.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    imgEl.onerror = () => {
+      const letter = (title || domain || '?')[0].toUpperCase();
+      const hue = hashCode(domain || title) % 360;
+      const bg = `hsl(${hue}, 50%, 40%)`;
+      const fg = `hsl(${hue}, 80%, 85%)`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${encodeURIComponent(bg)}"/><text x="12" y="17" text-anchor="middle" fill="${encodeURIComponent(fg)}" font-family="system-ui,-apple-system,sans-serif" font-weight="700" font-size="13">${letter}</text></svg>`;
+      imgEl.src = `data:image/svg+xml,${svg}`;
+      // Prevent re-fire
+      imgEl.onerror = null;
+    };
   }
 
   render() {
@@ -140,6 +146,11 @@ class App {
     const container = document.getElementById('bookmarks-list');
     container.textContent = '';
 
+    // When searching, expand all folders
+    if (query.trim()) {
+      this.collapsedFolders.clear();
+    }
+
     results.forEach(([folder, bookmarks], folderIndex) => {
       const group = document.createElement('div');
       group.className = 'folder-group';
@@ -164,6 +175,12 @@ class App {
       const content = document.createElement('div');
       content.className = 'folder-content';
       content.id = `folder-${folderIndex}`;
+      // Show if not collapsed
+      if (!this.collapsedFolders.has(folderIndex)) {
+        content.style.display = 'block';
+      } else {
+        content.style.display = 'none';
+      }
 
       bookmarks.forEach((b, itemIndex) => {
         const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
@@ -197,7 +214,6 @@ class App {
       this.renderSearch(e.target.value);
     });
 
-    // Settings button - no keyboard focus (tabindex=-1)
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) {
       settingsBtn.addEventListener('click', () => {
@@ -205,7 +221,6 @@ class App {
       });
     }
 
-    // Keyboard navigation - Ctrl or Cmd
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const modal = document.querySelector('.modal-overlay');
@@ -220,6 +235,12 @@ class App {
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         this.navigate(-1);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.navigate(1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.navigate(-1);
       } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
         e.preventDefault();
         this.openSelected();
@@ -232,7 +253,6 @@ class App {
       }
     });
 
-    // Mouse wheel navigation (when search is empty)
     document.addEventListener('wheel', (e) => {
       const searchInput = document.getElementById('search');
       if (document.activeElement !== searchInput || !searchInput.value) {
@@ -255,7 +275,6 @@ class App {
   async openBookmark(id) {
     const bookmark = this.bookmarks.bookmarks.find((b) => b.id === id);
     if (!bookmark) return;
-
     const settings = await loadSettings();
     await chrome.tabs.create({
       url: bookmark.url,
@@ -266,7 +285,6 @@ class App {
   async openBookmarkInNewTab(id) {
     const bookmark = this.bookmarks.bookmarks.find((b) => b.id === id);
     if (!bookmark) return;
-
     await chrome.tabs.create({
       url: bookmark.url,
       active: true,
@@ -276,9 +294,7 @@ class App {
   async deleteSelected() {
     const bookmark = this.flatBookmarks[this.selectedIndex];
     if (!bookmark) return;
-
     if (!confirm(`Delete "${bookmark.title}"?`)) return;
-
     await this.bookmarks.remove(bookmark.id);
     this.selectedIndex = Math.max(0, this.selectedIndex - 1);
     this.render();
@@ -359,10 +375,11 @@ class App {
     if (!content) return;
     if (this.collapsedFolders.has(index)) {
       this.collapsedFolders.delete(index);
+      content.style.display = 'block';
     } else {
       this.collapsedFolders.add(index);
+      content.style.display = 'none';
     }
-    content.style.display = this.collapsedFolders.has(index) ? 'none' : 'block';
   }
 }
 
@@ -371,7 +388,7 @@ function hashCode(str) {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+    hash |= 0;
   }
   return Math.abs(hash);
 }
