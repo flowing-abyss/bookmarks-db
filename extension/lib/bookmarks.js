@@ -22,11 +22,13 @@ export class BookmarksService {
     for (const node of nodes) {
       if (node.url) {
         const domain = this.extractDomain(node.url);
+        const origin = this.extractOrigin(node.url);
         const bookmark = {
           id: node.id,
           title: node.title,
           url: node.url,
           domain,
+          origin,
           parentPath: [...parentPath],
         };
         this.bookmarks.push(bookmark);
@@ -97,11 +99,13 @@ export class BookmarksService {
     for (const node of nodes) {
       if (node.url) {
         const domain = this.extractDomain(node.url);
+        const origin = this.extractOrigin(node.url);
         const bookmark = {
           id: node.id,
           title: node.title,
           url: node.url,
           domain,
+          origin,
           parentPath: [],
         };
         this.bookmarks.push(bookmark);
@@ -122,6 +126,15 @@ export class BookmarksService {
   extractDomain(url) {
     try {
       return new URL(url).hostname.replace('www.', '');
+    } catch {
+      return '';
+    }
+  }
+
+  extractOrigin(url) {
+    try {
+      const u = new URL(url);
+      return u.origin;
     } catch {
       return '';
     }
