@@ -13,10 +13,21 @@
       <div class="settings-section">
         <h2>Appearance</h2>
         <div class="form-group">
-          <label>Background Color</label>
-          <div class="color-picker-wrapper">
-            <input type="color" id="bg-color" value="#1a1a2e" />
-            <div class="color-preview" id="color-preview"></div>
+          <label for="theme-mode">Theme Palette</label>
+          <select id="theme-mode">
+            <option value="dark">Base16 Dark</option>
+            <option value="light">Base16 Light</option>
+            <option value="auto">Follow System</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Preview</label>
+          <div class="theme-preview" id="theme-preview" aria-hidden="true">
+            <span class="theme-preview-chip theme-preview-bg"></span>
+            <span class="theme-preview-chip theme-preview-surface"></span>
+            <span class="theme-preview-chip theme-preview-focus"></span>
+            <span class="theme-preview-chip theme-preview-border"></span>
+            <span class="theme-preview-chip theme-preview-text"></span>
           </div>
         </div>
       </div>
@@ -37,6 +48,12 @@
           <label class="checkbox-label">
             <input type="checkbox" id="open-in-new-tab" />
             <span>Open bookmarks in background tab</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="close-on-enter-open" />
+            <span>Close Bookmarks DB tab after Enter opens a bookmark</span>
           </label>
         </div>
       </div>

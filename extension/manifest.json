@@ -8,6 +8,7 @@
   },
   "permissions": [
     "bookmarks",
+    "favicon",
     "storage",
     "tabs"
   ],

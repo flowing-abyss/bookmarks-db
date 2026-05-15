@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.pi/
+.pi-lens/
+.worktrees/
+.git/
+.superpowers/
+docs/
+.eslint.config.js
+.knip.jsonc
+*.log
+package-lock.json

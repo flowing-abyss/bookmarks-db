@@ -7,18 +7,78 @@
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
-    <button class="settings-btn" id="settings-btn" title="Settings" tabindex="-1">⚙️</button>
-    <div class="container">
-      <header class="header">
-        <input
-          type="text"
-          id="search"
-          class="search-input"
-          placeholder="Search bookmarks..."
-          autocomplete="off"
-        />
+    <div class="app-shell">
+      <header class="toolbar">
+        <div class="toolbar-primary">
+          <div class="toolbar-controls">
+            <input
+              type="text"
+              id="search"
+              class="search-input"
+              placeholder="Filter by title, domain, or URL"
+              autocomplete="off"
+            />
+            <select id="sort-mode" class="sort-select" aria-label="Sort bookmarks">
+              <option value="relevance">Relevance</option>
+              <option value="title">Title</option>
+              <option value="domain">Domain</option>
+              <option value="recent">Recent</option>
+              <option value="frequent">Frequent</option>
+            </select>
+            <button class="settings-btn secondary-btn" id="new-bookmark-btn" title="Create Bookmark">
+              New Bookmark
+            </button>
+            <button class="settings-btn" id="settings-btn" title="Settings" tabindex="-1">
+              Configure
+            </button>
+          </div>
+        </div>
+        <div class="toolbar-secondary">
+          <span id="bookmarks-count" class="toolbar-stat">0 rows</span>
+          <span id="sort-badge" class="toolbar-stat">Sort: relevance</span>
+          <span class="toolbar-stat">↩ open</span>
+          <span class="toolbar-stat">⌘↩ background</span>
+          <span class="toolbar-stat">/ search</span>
+          <span class="toolbar-stat">N new bookmark</span>
+          <span class="toolbar-stat">⌘E edit</span>
+          <span class="toolbar-stat">⌘D delete</span>
+        </div>
       </header>
-      <main id="bookmarks-list" class="bookmarks-list"></main>
+      <section class="table-shell">
+        <div class="table-header">
+          <span class="table-column table-column-icon">Ico</span>
+          <span class="table-column table-column-title">Title</span>
+          <span class="table-column table-column-domain">Domain</span>
+        </div>
+        <main id="bookmarks-list" class="bookmarks-list"></main>
+      </section>
+      <section class="inspector-shell">
+        <div class="inspector-strip">
+          <div class="inspector-meta">
+            <div class="inspector-field inspector-field-url">
+              <span class="inspector-label">URL</span>
+              <span id="selection-url" class="inspector-value">No selection</span>
+            </div>
+            <div class="inspector-field inspector-field-path">
+              <span class="inspector-label">Folder</span>
+              <span id="selection-path" class="inspector-value">
+                Select a row to inspect its path
+              </span>
+            </div>
+          </div>
+          <div class="action-bar">
+            <button class="action-btn action-btn-primary" id="action-open">Open</button>
+            <button class="action-btn" id="action-background">Background</button>
+            <button class="action-btn" id="action-copy">Copy URL</button>
+            <button class="action-btn" id="action-edit">Edit</button>
+            <button class="action-btn action-btn-danger" id="action-delete">Delete</button>
+          </div>
+        </div>
+        <div class="inspector-subline">
+          <span id="selection-usage" class="inspector-chip">0 opens</span>
+          <p id="selection-feedback" class="selection-feedback"></p>
+        </div>
+      </section>
     </div>
     <script type="module" src="app.js"></script>
   </body>

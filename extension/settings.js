@@ -1,19 +1,22 @@
 import { loadSettings, saveSettings } from './lib/storage.js';
-import { computeColorScheme } from './lib/colors.js';
+import { computeColorScheme, resolveThemeMode } from './lib/colors.js';
 import { BookmarksService } from './lib/bookmarks.js';
 
 const DEFAULTS = {
-  bgColor: '#1a1a2e',
+  bgColor: '#181818',
+  themeMode: 'dark',
+  sortMode: 'relevance',
   openInBackground: true,
+  closeOnEnterOpen: false,
   rootFolderId: null,
 };
 
 async function init() {
   const settings = await loadSettings();
 
-  const bgColorInput = document.getElementById('bg-color');
-  const colorPreview = document.getElementById('color-preview');
+  const themeModeInput = document.getElementById('theme-mode');
   const openInBackgroundInput = document.getElementById('open-in-new-tab');
+  const closeOnEnterOpenInput = document.getElementById('close-on-enter-open');
   const rootFolderSelect = document.getElementById('root-folder');
 
   // Load bookmarks to populate folder dropdown
@@ -30,21 +33,24 @@ async function init() {
   });
 
   // Apply settings
-  bgColorInput.value = settings.bgColor;
+  themeModeInput.value = settings.themeMode || resolveThemeMode(settings.themeMode, settings.bgColor);
   openInBackgroundInput.checked = settings.openInBackground;
+  closeOnEnterOpenInput.checked = Boolean(settings.closeOnEnterOpen);
   if (settings.rootFolderId) {
     rootFolderSelect.value = settings.rootFolderId;
   }
-  updatePreview(settings.bgColor);
+  updatePreview(themeModeInput.value, settings.bgColor);
 
-  bgColorInput.addEventListener('input', (e) => {
-    updatePreview(e.target.value);
+  themeModeInput.addEventListener('change', (e) => {
+    updatePreview(e.target.value, settings.bgColor);
   });
 
   document.getElementById('save-settings').addEventListener('click', async () => {
     await saveSettings({
-      bgColor: bgColorInput.value,
+      bgColor: settings.bgColor,
+      themeMode: themeModeInput.value,
       openInBackground: openInBackgroundInput.checked,
+      closeOnEnterOpen: closeOnEnterOpenInput.checked,
       rootFolderId: rootFolderSelect.value || null,
     });
     alert('Settings saved!');
@@ -52,18 +58,19 @@ async function init() {
 
   document.getElementById('reset-settings').addEventListener('click', async () => {
     await saveSettings(DEFAULTS);
-    bgColorInput.value = DEFAULTS.bgColor;
+    themeModeInput.value = DEFAULTS.themeMode;
     openInBackgroundInput.checked = DEFAULTS.openInBackground;
+    closeOnEnterOpenInput.checked = DEFAULTS.closeOnEnterOpen;
     rootFolderSelect.value = '';
-    updatePreview(DEFAULTS.bgColor);
+    updatePreview(DEFAULTS.themeMode, DEFAULTS.bgColor);
     alert('Settings reset to defaults');
   });
 
-  function updatePreview(color) {
-    colorPreview.style.background = color;
-    const colors = computeColorScheme(color);
-    document.documentElement.style.setProperty('--bg', colors['--bg']);
-    document.documentElement.style.setProperty('--text', colors['--text']);
+  function updatePreview(themeMode, bgColor) {
+    const colors = computeColorScheme(themeMode, bgColor);
+    for (const [prop, value] of Object.entries(colors)) {
+      document.documentElement.style.setProperty(prop, value);
+    }
   }
 }
 
