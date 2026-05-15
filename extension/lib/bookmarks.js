@@ -5,15 +5,14 @@ export class BookmarksService {
     this.allBookmarks = [];
     this.allFolders = new Map();
     this.rootFolderName = null;
-    this.rootBookmarks = []; // bookmarks directly in root (not grouped)
+    this.rootBookmarks = []; // bookmarks directly in root (no folder header)
+    this.hasRootFilter = false;
   }
 
   async load() {
     const tree = await chrome.bookmarks.getTree();
-    // Save full tree for root folder selection
     this.fullTree = tree[0];
     this.parseTree(tree[0].children || [], []);
-    // Save copies of all bookmarks
     this.allBookmarks = [...this.bookmarks];
     this.allFolders = new Map(this.folders);
     return this;
@@ -44,11 +43,9 @@ export class BookmarksService {
   }
 
   getFolderTree() {
-    // Build a flat list of all folders with their IDs for the settings dropdown
     const folders = [];
     function traverse(node, depth = 0, parentPath = []) {
       if (node.children && node.children.length > 0) {
-        // Only add folders that have bookmark children or subfolders
         const hasBookmarks = node.children.some((c) => c.url);
         const hasSubfolders = node.children.some((c) => c.children);
         if (hasBookmarks || hasSubfolders) {
@@ -87,16 +84,15 @@ export class BookmarksService {
     const rootNode = findNode(this.fullTree, rootId);
     if (!rootNode) return;
 
-    const rootName = rootNode.title || 'Root';
-    this.rootFolderName = rootName;
+    this.rootFolderName = rootNode.title || 'Root';
     this.bookmarks = [];
     this.folders = new Map();
     this.rootBookmarks = [];
+    this.hasRootFilter = true;
     const children = rootNode.children || [];
     this._parseTreeFiltered(children);
   }
 
-  // Like parseTree but: direct bookmarks go to rootBookmarks, subfolders grouped normally
   _parseTreeFiltered(nodes) {
     for (const node of nodes) {
       if (node.url) {
@@ -109,10 +105,8 @@ export class BookmarksService {
           parentPath: [],
         };
         this.bookmarks.push(bookmark);
-        // Direct bookmarks in root — no folder grouping
         this.rootBookmarks.push(bookmark);
       } else if (node.children && node.children.length > 0) {
-        // Subfolders use their own name
         this.parseTree(node.children, [node.title || 'Untitled']);
       }
     }
@@ -121,6 +115,8 @@ export class BookmarksService {
   resetFilter() {
     this.bookmarks = [...this.allBookmarks];
     this.folders = new Map(this.allFolders);
+    this.rootBookmarks = [];
+    this.hasRootFilter = false;
   }
 
   extractDomain(url) {
@@ -131,37 +127,31 @@ export class BookmarksService {
     }
   }
 
+  _filterBookmarks(bookmarks, q) {
+    if (!q) return bookmarks;
+    return bookmarks.filter(b =>
+      b.title.toLowerCase().includes(q) ||
+      b.domain.toLowerCase().includes(q) ||
+      b.url.toLowerCase().includes(q)
+    );
+  }
+
+  // Returns array of { type: 'root' | 'folder', name?, bookmarks[] }
   search(query) {
     const q = query.toLowerCase().trim();
-    const hasFilter = !!q;
     const results = [];
 
-    // Root bookmarks first (no folder grouping)
-    let rootBm = this.rootBookmarks;
-    if (hasFilter) {
-      rootBm = rootBm.filter(b =>
-        b.title.toLowerCase().includes(q) ||
-        b.domain.toLowerCase().includes(q) ||
-        b.url.toLowerCase().includes(q)
-      );
-    }
+    // Root bookmarks (no folder header)
+    let rootBm = this._filterBookmarks(this.rootBookmarks, q);
     if (rootBm.length > 0) {
-      results.push([this.rootFolderName || 'Bookmarks', rootBm]);
+      results.push({ type: 'root', bookmarks: rootBm });
     }
 
-    // Then subfolder bookmarks
-    const folderEntries = Array.from(this.folders.entries());
-    for (const [folder, bookmarks] of folderEntries) {
-      let matched = bookmarks;
-      if (hasFilter) {
-        matched = bookmarks.filter(b =>
-          b.title.toLowerCase().includes(q) ||
-          b.domain.toLowerCase().includes(q) ||
-          b.url.toLowerCase().includes(q)
-        );
-      }
+    // Subfolder bookmarks (with folder header)
+    for (const [folder, bookmarks] of this.folders.entries()) {
+      const matched = this._filterBookmarks(bookmarks, q);
       if (matched.length > 0) {
-        results.push([folder, matched]);
+        results.push({ type: 'folder', name: folder, bookmarks: matched });
       }
     }
 
@@ -171,11 +161,9 @@ export class BookmarksService {
   async remove(id) {
     await chrome.bookmarks.remove(id);
     this.bookmarks = this.bookmarks.filter((b) => b.id !== id);
+    this.rootBookmarks = this.rootBookmarks.filter((b) => b.id !== id);
     for (const [folder, bookmarks] of this.folders.entries()) {
-      this.folders.set(
-        folder,
-        bookmarks.filter((b) => b.id !== id)
-      );
+      this.folders.set(folder, bookmarks.filter((b) => b.id !== id));
     }
   }
 

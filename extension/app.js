@@ -15,14 +15,15 @@ class App {
     this.applyColorScheme(settings.bgColor);
     await this.bookmarks.load();
 
-    // Apply root folder filter
     if (settings.rootFolderId) {
       this.bookmarks.filterByRoot(settings.rootFolderId);
     }
 
-    // Collapse all folders by default
+    // Collapse all folder groups by default (not root bookmarks)
     const results = this.bookmarks.search('');
-    results.forEach((_, i) => this.collapsedFolders.add(i));
+    results.forEach((g, i) => {
+      if (g.type === 'folder') this.collapsedFolders.add(i);
+    });
 
     this.render();
     this.setListeners();
@@ -76,69 +77,83 @@ class App {
       const fg = `hsl(${hue}, 80%, 85%)`;
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${encodeURIComponent(bg)}"/><text x="12" y="17" text-anchor="middle" fill="${encodeURIComponent(fg)}" font-family="system-ui,-apple-system,sans-serif" font-weight="700" font-size="13">${letter}</text></svg>`;
       imgEl.src = `data:image/svg+xml,${svg}`;
-      // Prevent re-fire
       imgEl.onerror = null;
     };
   }
 
-  render() {
-    const results = this.bookmarks.search('');
-    this.flatBookmarks = results.flatMap(([, bookmarks]) => bookmarks);
-
-    const container = document.getElementById('bookmarks-list');
-    container.textContent = '';
-
-    results.forEach(([folder, bookmarks], folderIndex) => {
-      const group = document.createElement('div');
-      group.className = 'folder-group';
-      group.dataset.folderIndex = String(folderIndex);
-
-      const header = document.createElement('div');
-      header.className = 'folder-header';
-      header.addEventListener('click', () => this.toggleFolder(folderIndex));
-
-      const folderIcon = document.createElement('span');
-      folderIcon.textContent = '▸';
-      folderIcon.className = 'folder-arrow';
-      const folderText = document.createElement('span');
-      folderText.textContent = folder;
-      const folderCount = document.createElement('span');
-      folderCount.className = 'folder-count';
-      folderCount.textContent = `${bookmarks.length}`;
-      header.appendChild(folderIcon);
-      header.appendChild(folderText);
-      header.appendChild(folderCount);
-
-      const content = document.createElement('div');
-      content.className = 'folder-content';
-      content.id = `folder-${folderIndex}`;
-      if (this.collapsedFolders.has(folderIndex)) {
-        content.style.display = 'none';
-      }
-
-      bookmarks.forEach((b, itemIndex) => {
-        const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
-        const isSelected = this.selectedIndex === globalIdx;
-        content.appendChild(this.createBookmarkElement(b, isSelected));
+  _renderGroup(group, groupIndex, results, container) {
+    if (group.type === 'root') {
+      // Root bookmarks — no folder header, flat list
+      group.bookmarks.forEach((b, itemIndex) => {
+        const globalIdx = this._getGlobalIndex(results, groupIndex, itemIndex);
+        const el = this.createBookmarkElement(b, this.selectedIndex === globalIdx);
+        container.appendChild(el);
       });
+      return;
+    }
 
-      group.appendChild(header);
-      group.appendChild(content);
-      container.appendChild(group);
+    // Folder group — with collapsible header
+    const groupEl = document.createElement('div');
+    groupEl.className = 'folder-group';
+    groupEl.dataset.folderIndex = String(groupIndex);
+
+    const header = document.createElement('div');
+    header.className = 'folder-header';
+    header.addEventListener('click', () => this.toggleFolder(groupIndex));
+
+    const folderIcon = document.createElement('span');
+    folderIcon.textContent = '▸';
+    folderIcon.className = 'folder-arrow';
+    const folderText = document.createElement('span');
+    folderText.textContent = group.name;
+    const folderCount = document.createElement('span');
+    folderCount.className = 'folder-count';
+    folderCount.textContent = `${group.bookmarks.length}`;
+    header.appendChild(folderIcon);
+    header.appendChild(folderText);
+    header.appendChild(folderCount);
+
+    const content = document.createElement('div');
+    content.className = 'folder-content';
+    content.id = `folder-${groupIndex}`;
+    if (this.collapsedFolders.has(groupIndex)) {
+      content.style.display = 'none';
+    }
+
+    group.bookmarks.forEach((b, itemIndex) => {
+      const globalIdx = this._getGlobalIndex(results, groupIndex, itemIndex);
+      const isSelected = this.selectedIndex === globalIdx;
+      content.appendChild(this.createBookmarkElement(b, isSelected));
     });
+
+    groupEl.appendChild(header);
+    groupEl.appendChild(content);
+    container.appendChild(groupEl);
   }
 
-  getGlobalIndexFromResults(results, folderIndex, itemIndex) {
+  _getGlobalIndex(results, groupIndex, itemIndex) {
     let offset = 0;
-    for (let i = 0; i < folderIndex; i++) {
-      offset += results[i][1].length;
+    for (let i = 0; i < groupIndex; i++) {
+      offset += results[i].bookmarks.length;
     }
     return offset + itemIndex;
   }
 
+  render() {
+    const results = this.bookmarks.search('');
+    this.flatBookmarks = results.flatMap((r) => r.bookmarks);
+
+    const container = document.getElementById('bookmarks-list');
+    container.textContent = '';
+
+    results.forEach((group, i) => {
+      this._renderGroup(group, i, results, container);
+    });
+  }
+
   renderSearch(query) {
     const results = this.bookmarks.search(query);
-    this.flatBookmarks = results.flatMap(([, bookmarks]) => bookmarks);
+    this.flatBookmarks = results.flatMap((r) => r.bookmarks);
     if (this.selectedIndex >= this.flatBookmarks.length) {
       this.selectedIndex = this.flatBookmarks.length - 1;
     }
@@ -146,51 +161,13 @@ class App {
     const container = document.getElementById('bookmarks-list');
     container.textContent = '';
 
-    // When searching, expand all folders
+    // Expand all when searching
     if (query.trim()) {
       this.collapsedFolders.clear();
     }
 
-    results.forEach(([folder, bookmarks], folderIndex) => {
-      const group = document.createElement('div');
-      group.className = 'folder-group';
-      group.dataset.folderIndex = String(folderIndex);
-
-      const header = document.createElement('div');
-      header.className = 'folder-header';
-      header.addEventListener('click', () => this.toggleFolder(folderIndex));
-
-      const folderIcon = document.createElement('span');
-      folderIcon.textContent = '▸';
-      folderIcon.className = 'folder-arrow';
-      const folderText = document.createElement('span');
-      folderText.textContent = folder;
-      const folderCount = document.createElement('span');
-      folderCount.className = 'folder-count';
-      folderCount.textContent = `${bookmarks.length}`;
-      header.appendChild(folderIcon);
-      header.appendChild(folderText);
-      header.appendChild(folderCount);
-
-      const content = document.createElement('div');
-      content.className = 'folder-content';
-      content.id = `folder-${folderIndex}`;
-      // Show if not collapsed
-      if (!this.collapsedFolders.has(folderIndex)) {
-        content.style.display = 'block';
-      } else {
-        content.style.display = 'none';
-      }
-
-      bookmarks.forEach((b, itemIndex) => {
-        const globalIdx = this.getGlobalIndexFromResults(results, folderIndex, itemIndex);
-        const isSelected = this.selectedIndex === globalIdx;
-        content.appendChild(this.createBookmarkElement(b, isSelected));
-      });
-
-      group.appendChild(header);
-      group.appendChild(content);
-      container.appendChild(group);
+    results.forEach((group, i) => {
+      this._renderGroup(group, i, results, container);
     });
   }
 
@@ -224,71 +201,50 @@ class App {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const modal = document.querySelector('.modal-overlay');
-        if (modal) {
-          modal.remove();
-          return;
-        }
+        if (modal) { modal.remove(); return; }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
-        e.preventDefault();
-        this.navigate(1);
+        e.preventDefault(); this.navigate(1);
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        this.navigate(-1);
+        e.preventDefault(); this.navigate(-1);
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.navigate(1);
+        e.preventDefault(); this.navigate(1);
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.navigate(-1);
+        e.preventDefault(); this.navigate(-1);
       } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.openSelected();
+        e.preventDefault(); this.openSelected();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'd' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.deleteSelected();
+        e.preventDefault(); this.deleteSelected();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'e' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.editSelected();
+        e.preventDefault(); this.editSelected();
       }
     });
 
     document.addEventListener('wheel', (e) => {
       const searchInput = document.getElementById('search');
       if (document.activeElement !== searchInput || !searchInput.value) {
-        if (e.deltaY > 10) {
-          this.navigate(1);
-        } else if (e.deltaY < -10) {
-          this.navigate(-1);
-        }
+        if (e.deltaY > 10) this.navigate(1);
+        else if (e.deltaY < -10) this.navigate(-1);
       }
     });
   }
 
   openSelected() {
     const bookmark = this.flatBookmarks[this.selectedIndex];
-    if (bookmark) {
-      this.openBookmark(bookmark.id);
-    }
+    if (bookmark) this.openBookmark(bookmark.id);
   }
 
   async openBookmark(id) {
     const bookmark = this.bookmarks.bookmarks.find((b) => b.id === id);
     if (!bookmark) return;
     const settings = await loadSettings();
-    await chrome.tabs.create({
-      url: bookmark.url,
-      active: !settings.openInBackground,
-    });
+    await chrome.tabs.create({ url: bookmark.url, active: !settings.openInBackground });
   }
 
   async openBookmarkInNewTab(id) {
     const bookmark = this.bookmarks.bookmarks.find((b) => b.id === id);
     if (!bookmark) return;
-    await chrome.tabs.create({
-      url: bookmark.url,
-      active: true,
-    });
+    await chrome.tabs.create({ url: bookmark.url, active: true });
   }
 
   async deleteSelected() {
@@ -306,7 +262,6 @@ class App {
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
-
     const modal = document.createElement('div');
     modal.className = 'modal';
 
@@ -345,7 +300,6 @@ class App {
 
     const saveBtn = document.createElement('button');
     saveBtn.className = 'btn btn-primary';
-    saveBtn.id = 'save-edit';
     saveBtn.textContent = 'Save';
     saveBtn.addEventListener('click', async () => {
       const newTitle = titleInput.value.trim();
@@ -359,14 +313,12 @@ class App {
 
     actions.appendChild(cancelBtn);
     actions.appendChild(saveBtn);
-
     modal.appendChild(title);
     modal.appendChild(titleGroup);
     modal.appendChild(urlGroup);
     modal.appendChild(actions);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-
     titleInput.focus();
   }
 
@@ -387,7 +339,7 @@ function hashCode(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
+    hash = ((hash << 5) - hash) + char;
     hash |= 0;
   }
   return Math.abs(hash);
