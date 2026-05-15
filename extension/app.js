@@ -19,7 +19,6 @@ class App {
       this.bookmarks.filterByRoot(settings.rootFolderId);
     }
 
-    // Collapse all folder groups by default (not root bookmarks)
     const results = this.bookmarks.search('');
     results.forEach((g, i) => {
       if (g.type === 'folder') this.collapsedFolders.add(i);
@@ -69,21 +68,70 @@ class App {
   }
 
   setFavicon(imgEl, domain, title) {
-    imgEl.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    imgEl.onerror = () => {
-      const letter = (title || domain || '?')[0].toUpperCase();
-      const hue = hashCode(domain || title) % 360;
-      const bg = `hsl(${hue}, 50%, 40%)`;
-      const fg = `hsl(${hue}, 80%, 85%)`;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${encodeURIComponent(bg)}"/><text x="12" y="17" text-anchor="middle" fill="${encodeURIComponent(fg)}" font-family="system-ui,-apple-system,sans-serif" font-weight="700" font-size="13">${letter}</text></svg>`;
-      imgEl.src = `data:image/svg+xml,${svg}`;
-      imgEl.onerror = null;
+    const fallbackSvg = this._makeFallbackSvg(domain, title);
+
+    // For local/internal domains, skip external APIs entirely
+    if (this._isLocalDomain(domain)) {
+      imgEl.src = fallbackSvg;
+      return;
+    }
+
+    // Cascade: Google → DuckDuckGo → fallback
+    const sources = [
+      `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    ];
+
+    let attempt = 0;
+    const tryNext = () => {
+      attempt++;
+      if (attempt >= sources.length) {
+        imgEl.src = fallbackSvg;
+        imgEl.onerror = null;
+        imgEl.onload = null;
+        return;
+      }
+      imgEl.src = sources[attempt];
     };
+
+    imgEl.onload = () => {
+      if (imgEl.naturalWidth < 10) {
+        tryNext();
+      } else {
+        imgEl.onload = null;
+        imgEl.onerror = null;
+      }
+    };
+
+    imgEl.onerror = () => {
+      tryNext();
+    };
+
+    imgEl.src = sources[0];
+  }
+
+  _isLocalDomain(domain) {
+    return !domain ||
+      domain === 'localhost' ||
+      domain.startsWith('127.') ||
+      domain.startsWith('192.168.') ||
+      domain.startsWith('10.') ||
+      domain.startsWith('172.') ||
+      domain.endsWith('.local') ||
+      domain.includes('local:') ||
+      domain.startsWith('0.');
+  }
+
+  _makeFallbackSvg(domain, title) {
+    const letter = (title || domain || '?')[0].toUpperCase();
+    const hue = hashCode(domain || title) % 360;
+    const bg = `hsl(${hue}, 50%, 40%)`;
+    const fg = `hsl(${hue}, 80%, 85%)`;
+    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${encodeURIComponent(bg)}"/><text x="12" y="17" text-anchor="middle" fill="${encodeURIComponent(fg)}" font-family="system-ui,-apple-system,sans-serif" font-weight="700" font-size="13">${letter}</text></svg>`;
   }
 
   _renderGroup(group, groupIndex, results, container) {
     if (group.type === 'root') {
-      // Root bookmarks — no folder header, flat list
       group.bookmarks.forEach((b, itemIndex) => {
         const globalIdx = this._getGlobalIndex(results, groupIndex, itemIndex);
         const el = this.createBookmarkElement(b, this.selectedIndex === globalIdx);
@@ -92,7 +140,6 @@ class App {
       return;
     }
 
-    // Folder group — with collapsible header
     const groupEl = document.createElement('div');
     groupEl.className = 'folder-group';
     groupEl.dataset.folderIndex = String(groupIndex);
@@ -116,8 +163,8 @@ class App {
     const content = document.createElement('div');
     content.className = 'folder-content';
     content.id = `folder-${groupIndex}`;
-    if (this.collapsedFolders.has(groupIndex)) {
-      content.style.display = 'none';
+    if (!this.collapsedFolders.has(groupIndex)) {
+      content.classList.add('expanded');
     }
 
     group.bookmarks.forEach((b, itemIndex) => {
@@ -201,36 +248,24 @@ class App {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const modal = document.querySelector('.modal-overlay');
-        if (modal) {
-          modal.remove();
-          return;
-        }
+        if (modal) { modal.remove(); return; }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
-        e.preventDefault();
-        this.navigate(1);
+        e.preventDefault(); this.navigate(1);
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        this.navigate(-1);
+        e.preventDefault(); this.navigate(-1);
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.navigate(1);
+        e.preventDefault(); this.navigate(1);
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.navigate(-1);
+        e.preventDefault(); this.navigate(-1);
       } else if (e.key === 'Enter' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.openSelected();
+        e.preventDefault(); this.openSelected();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'd' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.deleteSelected();
+        e.preventDefault(); this.deleteSelected();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'e' && this.selectedIndex >= 0) {
-        e.preventDefault();
-        this.editSelected();
+        e.preventDefault(); this.editSelected();
       }
     });
-
-    // No wheel navigation — conflicts with trackpad scrolling
   }
 
   openSelected() {
@@ -331,10 +366,10 @@ class App {
     if (!content) return;
     if (this.collapsedFolders.has(index)) {
       this.collapsedFolders.delete(index);
-      content.style.display = 'block';
+      content.classList.add('expanded');
     } else {
       this.collapsedFolders.add(index);
-      content.style.display = 'none';
+      content.classList.remove('expanded');
     }
   }
 }
@@ -343,7 +378,7 @@ function hashCode(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
+    hash = ((hash << 5) - hash) + char;
     hash |= 0;
   }
   return Math.abs(hash);
