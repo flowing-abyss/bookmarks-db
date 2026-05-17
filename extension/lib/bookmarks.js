@@ -15,6 +15,11 @@ export class BookmarksService {
     const tree = await chrome.bookmarks.getTree();
     this.fullTree = tree[0];
     this.sequence = 0;
+    this.bookmarks = [];
+    this.folders = new Map();
+    this.rootBookmarks = [];
+    this.rootFolderName = null;
+    this.hasRootFilter = false;
     this.parseTree(tree[0].children || [], []);
     this.allBookmarks = [...this.bookmarks];
     this.allFolders = new Map(this.folders);
@@ -38,7 +43,11 @@ export class BookmarksService {
           this.folders.set(folderKey, []);
         }
         this.folders.get(folderKey).push(bookmark);
-      } else if (node.children && node.children.length > 0) {
+      } else if (node.children) {
+        const folderKey = [...parentPath, node.title || 'Untitled'].join(' / ');
+        if (folderKey && !this.folders.has(folderKey)) {
+          this.folders.set(folderKey, []);
+        }
         this.parseTree(node.children, [...parentPath, node.title || 'Untitled']);
       }
     }
@@ -65,23 +74,18 @@ export class BookmarksService {
   getFolderTree(rootId = null) {
     const folders = [];
     const traverse = (node, depth = 0, parentPath = []) => {
-      if (!node || node.url || !node.children || node.children.length === 0) {
+      if (!node || node.url || !node.children) {
         return;
       }
 
       const title = node.title || 'Untitled';
       const nextPath = [...parentPath, title];
-      const hasBookmarks = node.children.some((child) => child.url);
-      const hasSubfolders = node.children.some((child) => !child.url && child.children?.length);
-
-      if (hasBookmarks || hasSubfolders) {
-        folders.push({
-          id: node.id,
-          title,
-          depth,
-          path: nextPath.join(' / '),
-        });
-      }
+      folders.push({
+        id: node.id,
+        title,
+        depth,
+        path: nextPath.join(' / '),
+      });
 
       for (const child of node.children) {
         if (!child.url) {
@@ -145,7 +149,11 @@ export class BookmarksService {
         const bookmark = this._createBookmarkRecord(node, [], '');
         this.bookmarks.push(bookmark);
         this.rootBookmarks.push(bookmark);
-      } else if (node.children && node.children.length > 0) {
+      } else if (node.children) {
+        const folderKey = node.title || 'Untitled';
+        if (folderKey && !this.folders.has(folderKey)) {
+          this.folders.set(folderKey, []);
+        }
         this.parseTree(node.children, [node.title || 'Untitled']);
       }
     }
@@ -181,7 +189,12 @@ export class BookmarksService {
     const activityMap = options.activityMap || {};
     const groups = [];
 
-    const rootMatches = this._filterBookmarks(this.rootBookmarks, tokens, normalizedQuery, activityMap);
+    const rootMatches = this._filterBookmarks(
+      this.rootBookmarks,
+      tokens,
+      normalizedQuery,
+      activityMap
+    );
     if (rootMatches.length > 0) {
       groups.push({
         type: 'root',
@@ -209,7 +222,12 @@ export class BookmarksService {
     const records = [];
 
     for (const bookmark of bookmarks) {
-      const record = this._createSearchRecord(bookmark, tokens, normalizedQuery, activityMap[bookmark.id]);
+      const record = this._createSearchRecord(
+        bookmark,
+        tokens,
+        normalizedQuery,
+        activityMap[bookmark.id]
+      );
       if (record) {
         records.push(record);
       }
@@ -228,7 +246,10 @@ export class BookmarksService {
     if (hasQuery) {
       const allTokensMatch = tokens.every(
         (token) =>
-          title.includes(token) || domain.includes(token) || url.includes(token) || path.includes(token)
+          title.includes(token) ||
+          domain.includes(token) ||
+          url.includes(token) ||
+          path.includes(token)
       );
 
       if (!allTokensMatch) {
@@ -283,7 +304,11 @@ export class BookmarksService {
       if (path.includes(token)) score += 8;
     }
 
-    if (title && normalizedQuery && title.replaceAll(' ', '').startsWith(normalizedQuery.replaceAll(' ', ''))) {
+    if (
+      title &&
+      normalizedQuery &&
+      title.replaceAll(' ', '').startsWith(normalizedQuery.replaceAll(' ', ''))
+    ) {
       score += 18;
     }
 
@@ -338,11 +363,15 @@ export class BookmarksService {
   _sortBookmarks(bookmarks, sortMode, normalizedQuery) {
     return [...bookmarks].sort((left, right) => {
       if (sortMode === 'title') {
-        return this._compareText(left.title, right.title) || this._compareText(left.domain, right.domain);
+        return (
+          this._compareText(left.title, right.title) || this._compareText(left.domain, right.domain)
+        );
       }
 
       if (sortMode === 'domain') {
-        return this._compareText(left.domain, right.domain) || this._compareText(left.title, right.title);
+        return (
+          this._compareText(left.domain, right.domain) || this._compareText(left.title, right.title)
+        );
       }
 
       if (sortMode === 'recent') {
@@ -467,6 +496,43 @@ export class BookmarksService {
 
   async create({ title, url, parentId }) {
     return chrome.bookmarks.create({ title, url, parentId });
+  }
+
+  async createFolderPath(path, options = {}) {
+    const parts = String(path || '')
+      .split('/')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (!parts.length) {
+      return null;
+    }
+
+    let parentId = this.getDefaultCreateParentId(
+      options.parentId || null,
+      options.rootFolderId || null
+    );
+    let parentNode = this.getNodeById(parentId);
+    let createdOrExisting = null;
+
+    for (const part of parts) {
+      const existing = (parentNode?.children || []).find(
+        (child) => !child.url && child.title.toLowerCase() === part.toLowerCase()
+      );
+
+      if (existing) {
+        createdOrExisting = existing;
+        parentId = existing.id;
+        parentNode = existing;
+        continue;
+      }
+
+      createdOrExisting = await chrome.bookmarks.create({ parentId, title: part });
+      parentId = createdOrExisting.id;
+      parentNode = { ...createdOrExisting, children: [] };
+    }
+
+    return createdOrExisting;
   }
 
   async move(id, parentId) {

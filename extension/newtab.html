@@ -7,79 +7,116 @@
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <header class="toolbar">
-        <div class="toolbar-primary">
-          <div class="toolbar-controls">
+    <main class="shell">
+      <header class="command-bar">
+        <div class="command-grid">
+          <label class="search-wrap" for="search">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M20 20L15.5 15.5M17 10.5C17 14.0899 14.0899 17 10.5 17C6.91015 17 4 14.0899 4 10.5C4 6.91015 6.91015 4 10.5 4C14.0899 4 17 6.91015 17 10.5Z"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span class="sr-only">Filter bookmarks</span>
             <input
-              type="text"
+              type="search"
               id="search"
               class="search-input"
-              placeholder="Filter by title, domain, or URL"
+              placeholder="search... site:github.com in:research sort:recent"
               autocomplete="off"
+              spellcheck="false"
             />
+          </label>
+
+          <label class="select-wrap" for="sort-mode">
+            <span class="select-label">sort</span>
             <select id="sort-mode" class="sort-select" aria-label="Sort bookmarks">
-              <option value="relevance">Relevance</option>
-              <option value="title">Title</option>
-              <option value="domain">Domain</option>
-              <option value="recent">Recent</option>
-              <option value="frequent">Frequent</option>
+              <option value="relevance">relevance</option>
+              <option value="recent">recent</option>
+              <option value="frequent">opens</option>
+              <option value="title">title</option>
+              <option value="domain">site</option>
             </select>
-            <button class="settings-btn secondary-btn" id="new-bookmark-btn" title="Create Bookmark">
-              New Bookmark
-            </button>
-            <button class="settings-btn" id="settings-btn" title="Settings" tabindex="-1">
-              Configure
-            </button>
-          </div>
+          </label>
+
+          <button class="primary-action" type="button" id="new-bookmark-btn">new bookmark</button>
+          <button
+            class="tool settings-tool"
+            type="button"
+            id="settings-btn"
+            title="Settings"
+            tabindex="-1"
+          >
+            Configure
+          </button>
         </div>
-        <div class="toolbar-secondary">
-          <span id="bookmarks-count" class="toolbar-stat">0 rows</span>
-          <span id="sort-badge" class="toolbar-stat">Sort: relevance</span>
-          <span class="toolbar-stat">↩ open</span>
-          <span class="toolbar-stat">⌘↩ background</span>
-          <span class="toolbar-stat">/ search</span>
-          <span class="toolbar-stat">N new bookmark</span>
-          <span class="toolbar-stat">⌘E edit</span>
-          <span class="toolbar-stat">⌘D delete</span>
+        <div class="hotkeys" aria-label="Keyboard shortcuts">
+          <span class="hotkey hotkey-stat" id="bookmarks-count">0 rows</span>
+          <span class="hotkey hotkey-stat" id="sort-badge">sort: relevance</span>
+          <span class="hotkey"><kbd>/</kbd><span>focus</span></span>
+          <span class="hotkey"><kbd>⌘J/K</kbd><span>move</span></span>
+          <span class="hotkey"><kbd>enter</kbd><span>open</span></span>
+          <span class="hotkey"><kbd>⌘↵</kbd><span>bg</span></span>
+          <span class="hotkey"><kbd>y</kbd><span>copy</span></span>
+          <span class="hotkey"><kbd>n</kbd><span>new</span></span>
+          <span class="hotkey"><kbd>⌘E</kbd><span>edit</span></span>
+          <span class="hotkey"><kbd>⌘D</kbd><span>del</span></span>
         </div>
       </header>
-      <section class="table-shell">
-        <div class="table-header">
-          <span class="table-column table-column-icon">Ico</span>
-          <span class="table-column table-column-title">Title</span>
-          <span class="table-column table-column-domain">Domain</span>
-        </div>
-        <main id="bookmarks-list" class="bookmarks-list"></main>
-      </section>
-      <section class="inspector-shell">
-        <div class="inspector-strip">
-          <div class="inspector-meta">
-            <div class="inspector-field inspector-field-url">
-              <span class="inspector-label">URL</span>
-              <span id="selection-url" class="inspector-value">No selection</span>
-            </div>
-            <div class="inspector-field inspector-field-path">
-              <span class="inspector-label">Folder</span>
-              <span id="selection-path" class="inspector-value">
-                Select a row to inspect its path
-              </span>
+
+      <section class="workspace">
+        <aside class="folder-rail" aria-label="Folders">
+          <div class="folder-rail-head">
+            <label class="folder-search-wrap" for="folder-search">
+              <span class="sr-only">Filter folders</span>
+              <input
+                id="folder-search"
+                class="folder-search-input"
+                type="search"
+                spellcheck="false"
+                placeholder="Filter folders"
+              />
+            </label>
+          </div>
+          <div class="folder-list" id="folder-list"></div>
+          <div class="folder-rail-foot">
+            <button class="tool folder-add" type="button" id="new-folder-btn">New folder</button>
+          </div>
+        </aside>
+
+        <section class="table-wrap" id="table-wrap" data-mode="all" aria-label="Bookmarks database">
+          <div class="table-head" role="presentation">
+            <div class="table-head-grid">
+              <span class="column-label header-cell header-cell-title">Title</span>
+              <span class="column-label header-cell col-folder">Folder</span>
+              <span class="column-label header-cell col-domain">Site</span>
+              <span class="column-label header-cell align-right col-last">Last</span>
+              <span class="column-label header-cell align-right col-opens">Opens</span>
             </div>
           </div>
-          <div class="action-bar">
-            <button class="action-btn action-btn-primary" id="action-open">Open</button>
-            <button class="action-btn" id="action-background">Background</button>
-            <button class="action-btn" id="action-copy">Copy URL</button>
-            <button class="action-btn" id="action-edit">Edit</button>
-            <button class="action-btn action-btn-danger" id="action-delete">Delete</button>
-          </div>
-        </div>
-        <div class="inspector-subline">
-          <span id="selection-usage" class="inspector-chip">0 opens</span>
-          <p id="selection-feedback" class="selection-feedback"></p>
-        </div>
+          <main id="bookmarks-list" class="rows" role="listbox" aria-label="Bookmarks list"></main>
+        </section>
       </section>
-    </div>
+
+      <footer class="status-bar">
+        <div class="status-line" id="status-line">Select a row to open or copy.</div>
+        <div class="actions">
+          <button class="tool" type="button" id="action-open">Open</button>
+          <button class="tool" type="button" id="action-background">Open bg</button>
+          <button class="tool" type="button" id="action-copy">Copy URL</button>
+          <button class="tool" type="button" id="action-edit">Edit</button>
+          <button class="tool" type="button" data-variant="danger" id="action-delete">
+            Delete
+          </button>
+        </div>
+      </footer>
+    </main>
+    <p id="selection-url" class="sr-only">No selection</p>
+    <p id="selection-path" class="sr-only">Select a row to inspect its path</p>
+    <p id="selection-usage" class="sr-only">0 opens</p>
+    <p id="selection-feedback" class="sr-only"></p>
     <script type="module" src="app.js"></script>
   </body>
 </html>

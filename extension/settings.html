@@ -45,16 +45,11 @@
       <div class="settings-section">
         <h2>Behavior</h2>
         <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="open-in-new-tab" />
-            <span>Open bookmarks in background tab</span>
-          </label>
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="close-on-enter-open" />
-            <span>Close Bookmarks DB tab after Enter opens a bookmark</span>
-          </label>
+          <label for="open-behavior">Open behavior</label>
+          <select id="open-behavior">
+            <option value="background">Open in background tab</option>
+            <option value="open-close">Open active tab and close Bookmarks DB</option>
+          </select>
         </div>
       </div>
 

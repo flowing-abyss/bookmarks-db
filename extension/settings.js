@@ -15,8 +15,7 @@ async function init() {
   const settings = await loadSettings();
 
   const themeModeInput = document.getElementById('theme-mode');
-  const openInBackgroundInput = document.getElementById('open-in-new-tab');
-  const closeOnEnterOpenInput = document.getElementById('close-on-enter-open');
+  const openBehaviorInput = document.getElementById('open-behavior');
   const rootFolderSelect = document.getElementById('root-folder');
 
   // Load bookmarks to populate folder dropdown
@@ -33,9 +32,9 @@ async function init() {
   });
 
   // Apply settings
-  themeModeInput.value = settings.themeMode || resolveThemeMode(settings.themeMode, settings.bgColor);
-  openInBackgroundInput.checked = settings.openInBackground;
-  closeOnEnterOpenInput.checked = Boolean(settings.closeOnEnterOpen);
+  themeModeInput.value =
+    settings.themeMode || resolveThemeMode(settings.themeMode, settings.bgColor);
+  openBehaviorInput.value = settings.openInBackground ? 'background' : 'open-close';
   if (settings.rootFolderId) {
     rootFolderSelect.value = settings.rootFolderId;
   }
@@ -46,11 +45,12 @@ async function init() {
   });
 
   document.getElementById('save-settings').addEventListener('click', async () => {
+    const shouldOpenInBackground = openBehaviorInput.value === 'background';
     await saveSettings({
       bgColor: settings.bgColor,
       themeMode: themeModeInput.value,
-      openInBackground: openInBackgroundInput.checked,
-      closeOnEnterOpen: closeOnEnterOpenInput.checked,
+      openInBackground: shouldOpenInBackground,
+      closeOnEnterOpen: !shouldOpenInBackground,
       rootFolderId: rootFolderSelect.value || null,
     });
     alert('Settings saved!');
@@ -59,8 +59,7 @@ async function init() {
   document.getElementById('reset-settings').addEventListener('click', async () => {
     await saveSettings(DEFAULTS);
     themeModeInput.value = DEFAULTS.themeMode;
-    openInBackgroundInput.checked = DEFAULTS.openInBackground;
-    closeOnEnterOpenInput.checked = DEFAULTS.closeOnEnterOpen;
+    openBehaviorInput.value = DEFAULTS.openInBackground ? 'background' : 'open-close';
     rootFolderSelect.value = '';
     updatePreview(DEFAULTS.themeMode, DEFAULTS.bgColor);
     alert('Settings reset to defaults');
