@@ -1293,6 +1293,13 @@ body:has(.shell) {
   color: var(--fg);
 }
 
+.folder-button.drop-target {
+  background: color-mix(in oklch, var(--accent) 16%, var(--surface-2));
+  border-color: color-mix(in oklch, var(--accent) 52%, var(--line-strong));
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 26%, transparent);
+}
+
 .folder-button.selected::after {
   content: '';
   position: absolute;
@@ -1442,6 +1449,7 @@ body:has(.shell) {
   padding: 0 16px;
   appearance: none;
   -webkit-appearance: none;
+  position: relative;
 }
 
 .row:nth-child(even) {
@@ -1456,6 +1464,31 @@ body:has(.shell) {
   background:
     linear-gradient(90deg, var(--accent) 0 2px, transparent 2px),
     color-mix(in oklch, var(--accent) 8%, var(--surface-2));
+}
+
+.row.dragging {
+  opacity: 0.48;
+}
+
+.row.drop-before::before,
+.row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.row.drop-before::before {
+  top: -1px;
+}
+
+.row.drop-after::after {
+  bottom: -1px;
 }
 
 .cell {

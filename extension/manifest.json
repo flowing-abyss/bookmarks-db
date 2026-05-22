@@ -1,17 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Bookmarks DB",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Fast bookmarks search with keyboard navigation",
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
-  "permissions": [
-    "bookmarks",
-    "favicon",
-    "storage",
-    "tabs"
-  ],
+  "permissions": ["bookmarks", "favicon", "storage", "tabs"],
   "action": {
     "default_title": "Bookmarks DB Settings"
   },

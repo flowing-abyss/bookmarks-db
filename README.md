@@ -98,7 +98,7 @@ Available settings:
 ### Notes
 
 - `npm run lint` should pass
-- `npm run typecheck` currently reports existing project-wide issues and is not yet clean
+- `npm run typecheck` should pass
 
 ## Permissions
 

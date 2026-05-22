@@ -22,7 +22,7 @@ const DARK_THEME = {
   '--chip-bg': '#282828',
   '--selection-fill':
     'linear-gradient(90deg, rgba(124, 175, 194, 0.18) 0%, rgba(40, 40, 40, 0.18) 100%)',
-}
+};
 
 const LIGHT_THEME = {
   '--bg': '#f8f8f8',
@@ -42,23 +42,24 @@ const LIGHT_THEME = {
   '--grid-line': 'rgba(216, 216, 216, 0.72)',
   '--page-gradient-start': '#f8f8f8',
   '--page-gradient-end': '#f8f8f8',
-  '--panel-overlay': 'linear-gradient(180deg, rgba(232, 232, 232, 0.76) 0%, rgba(248, 248, 248, 0) 100%)',
+  '--panel-overlay':
+    'linear-gradient(180deg, rgba(232, 232, 232, 0.76) 0%, rgba(248, 248, 248, 0) 100%)',
   '--table-header-overlay':
     'linear-gradient(180deg, rgba(124, 175, 194, 0.14) 0%, rgba(232, 232, 232, 0.1) 100%)',
   '--chip-bg': '#e8e8e8',
   '--selection-fill':
     'linear-gradient(90deg, rgba(124, 175, 194, 0.16) 0%, rgba(232, 232, 232, 0.3) 100%)',
-}
+};
 
 export function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? {
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16),
       }
-    : { r: 24, g: 24, b: 24 }
+    : { r: 24, g: 24, b: 24 };
 }
 
 export function rgbToHex(r, g, b) {
@@ -66,56 +67,60 @@ export function rgbToHex(r, g, b) {
     '#' +
     [r, g, b]
       .map((x) => {
-        const hex = Math.round(Math.max(0, Math.min(255, x))).toString(16)
-        return hex.length === 1 ? '0' + hex : hex
+        const hex = Math.round(Math.max(0, Math.min(255, x))).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
       })
       .join('')
-  )
+  );
 }
 
 export function lighten(hex, percent) {
-  const { r, g, b } = hexToRgb(hex)
+  const { r, g, b } = hexToRgb(hex);
   return rgbToHex(
     r + (255 - r) * (percent / 100),
     g + (255 - g) * (percent / 100),
     b + (255 - b) * (percent / 100)
-  )
+  );
 }
 
 export function darken(hex, percent) {
-  const { r, g, b } = hexToRgb(hex)
-  return rgbToHex(r * (1 - percent / 100), g * (1 - percent / 100), b * (1 - percent / 100))
+  const { r, g, b } = hexToRgb(hex);
+  return rgbToHex(r * (1 - percent / 100), g * (1 - percent / 100), b * (1 - percent / 100));
 }
 
 export function getContrastColor(hex) {
-  const { r, g, b } = hexToRgb(hex)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.5 ? '#000000' : '#ffffff'
+  const { r, g, b } = hexToRgb(hex);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
 export function blend(hex1, hex2, percent) {
-  const { r: r1, g: g1, b: b1 } = hexToRgb(hex1)
-  const { r: r2, g: g2, b: b2 } = hexToRgb(hex2)
+  const { r: r1, g: g1, b: b1 } = hexToRgb(hex1);
+  const { r: r2, g: g2, b: b2 } = hexToRgb(hex2);
   return rgbToHex(
     r1 + (r2 - r1) * (percent / 100),
     g1 + (g2 - g1) * (percent / 100),
     b1 + (b2 - b1) * (percent / 100)
-  )
+  );
 }
 
 export function resolveThemeMode(themeMode, legacyBgColor = '#181818') {
   if (themeMode === 'dark' || themeMode === 'light') {
-    return themeMode
+    return themeMode;
   }
 
-  if (themeMode === 'auto' && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  if (
+    themeMode === 'auto' &&
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function'
+  ) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
 
-  return getContrastColor(legacyBgColor) === '#ffffff' ? 'dark' : 'light'
+  return getContrastColor(legacyBgColor) === '#ffffff' ? 'dark' : 'light';
 }
 
 export function computeColorScheme(themeMode = 'dark', legacyBgColor = '#181818') {
-  const resolvedThemeMode = resolveThemeMode(themeMode, legacyBgColor)
-  return resolvedThemeMode === 'light' ? LIGHT_THEME : DARK_THEME
+  const resolvedThemeMode = resolveThemeMode(themeMode, legacyBgColor);
+  return resolvedThemeMode === 'light' ? LIGHT_THEME : DARK_THEME;
 }

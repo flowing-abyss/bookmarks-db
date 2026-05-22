@@ -67,6 +67,7 @@ export class BookmarksService {
       parentPath: [...parentPath],
       folderKey,
       pathText: folderKey || 'Root',
+      index: Number.isFinite(node.index) ? node.index : 0,
       order: this.sequence++,
     };
   }
@@ -535,8 +536,17 @@ export class BookmarksService {
     return createdOrExisting;
   }
 
-  async move(id, parentId) {
-    return chrome.bookmarks.move(id, { parentId });
+  /**
+   * @param {string} id
+   * @param {string} parentId
+   * @param {number | undefined} index
+   */
+  async move(id, parentId, index = undefined) {
+    const destination =
+      typeof index === 'number' && Number.isInteger(index) && index >= 0
+        ? { parentId, index }
+        : { parentId };
+    return chrome.bookmarks.move(id, destination);
   }
 
   async updateFolder(id, title) {

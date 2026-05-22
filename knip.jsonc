@@ -1,10 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5.38.1/schema.json",
-  "entry": [
-    ".worktrees/feature-bookmarks-extension/extension/app.js",
-    ".worktrees/feature-bookmarks-extension/extension/settings.js",
-  ],
+  "entry": ["extension/app.js", "extension/settings.js"],
   "project": ["**/*.js"],
-  "ignore": [".pi/**", "**/colors.js"],
+  "ignore": ["**/colors.js"],
   "include": ["dependencies", "unlisted", "binaries", "unresolved", "exports", "files"],
 }

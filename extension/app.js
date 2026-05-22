@@ -34,6 +34,11 @@ class App {
     this.chromeFaviconBaseUrl = chrome.runtime.getURL('/_favicon/');
     this.selectionFeedbackTimer = null;
     this.contextMenuEl = null;
+    this.draggedBookmarkId = null;
+    this.dragOverRowId = null;
+    this.dragOverPosition = null;
+    this.dragOverFolderId = null;
+    this.folderDragOpenTimer = null;
   }
 
   async init() {
@@ -132,6 +137,7 @@ class App {
     item.type = 'button';
     item.className = 'row' + (isSelected ? ' selected' : '');
     item.dataset.id = bookmark.id;
+    item.draggable = true;
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
     item.title = bookmark.url;
@@ -151,6 +157,13 @@ class App {
         this.openBookmarkInBackgroundTab(bookmark.id);
       }
     });
+    item.addEventListener('dragstart', (event) => this._handleBookmarkDragStart(event, bookmark));
+    item.addEventListener('dragend', () => this._handleBookmarkDragEnd());
+    item.addEventListener('dragover', (event) => this._handleBookmarkRowDragOver(event, bookmark));
+    item.addEventListener('dragleave', (event) =>
+      this._handleBookmarkRowDragLeave(event, bookmark)
+    );
+    item.addEventListener('drop', (event) => this._handleBookmarkRowDrop(event, bookmark));
 
     const titleCell = document.createElement('span');
     titleCell.className = 'cell title-cell';
@@ -393,6 +406,7 @@ class App {
         selected: activeScope.mode === 'root',
         mode: 'root',
         isLeaf: true,
+        folderId: this._getRootDropParentId(),
       })
     );
 
@@ -412,6 +426,7 @@ class App {
           mode: 'folder',
           isLeaf: node.children.length === 0,
           isOpen: this._isFolderNodeOpen(node),
+          folderId: node.id,
         })
       );
 
@@ -495,7 +510,16 @@ class App {
     return roots;
   }
 
-  _createFolderRailRow({ path, title, count, selected, isLeaf, isOpen = false, mode = 'folder' }) {
+  _createFolderRailRow({
+    path,
+    title,
+    count,
+    selected,
+    isLeaf,
+    isOpen = false,
+    mode = 'folder',
+    folderId = null,
+  }) {
     const row = document.createElement('div');
     row.className = 'folder-row';
     row.dataset.folder = path;
@@ -533,6 +557,9 @@ class App {
     button.className = `folder-button${selected ? ' selected' : ''}`;
     button.dataset.folder = path;
     button.dataset.mode = mode;
+    if (folderId) {
+      button.dataset.folderId = folderId;
+    }
     button.addEventListener('click', () => {
       this.activeFolderMode = mode;
       this.activeFolderPath = mode === 'folder' ? path : '';
@@ -548,6 +575,17 @@ class App {
       event.preventDefault();
       this._openFolderContextMenu({ ...folder, name: folder.path }, event.clientX, event.clientY);
     });
+    if ((mode === 'folder' || mode === 'root') && folderId) {
+      button.addEventListener('dragover', (event) =>
+        this._handleFolderDragOver(event, { path, isLeaf, mode })
+      );
+      button.addEventListener('dragleave', (event) =>
+        this._handleFolderDragLeave(event, path, mode)
+      );
+      button.addEventListener('drop', (event) =>
+        this._handleFolderDrop(event, path, folderId, mode)
+      );
+    }
 
     const name = document.createElement('span');
     name.className = 'folder-name';
@@ -603,6 +641,221 @@ class App {
     }
 
     return folders;
+  }
+
+  _getFolderIdByPath(path) {
+    const normalizedPath = this._normalize(path);
+    return (
+      this._getFolderTreeForCurrentRoot().find(
+        (folder) => this._normalize(folder.path) === normalizedPath
+      )?.id || null
+    );
+  }
+
+  _getRootDropParentId() {
+    return (
+      this.settings.rootFolderId ||
+      this.bookmarks.getDefaultCreateParentId(null, this.settings.rootFolderId)
+    );
+  }
+
+  _handleBookmarkDragStart(event, bookmark) {
+    this._closeContextMenu();
+    this.draggedBookmarkId = bookmark.id;
+    event.currentTarget.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', bookmark.id);
+    event.dataTransfer.setData('application/x-bookmark-id', bookmark.id);
+  }
+
+  _handleBookmarkDragEnd() {
+    this._clearDragState();
+  }
+
+  _handleBookmarkRowDragOver(event, bookmark) {
+    if (!this._canAcceptBookmarkDrop(bookmark.id)) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    this._setRowDropTarget(bookmark.id, position);
+  }
+
+  _handleBookmarkRowDragLeave(event, bookmark) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+    if (this.dragOverRowId === bookmark.id) {
+      this._setRowDropTarget(null, null);
+    }
+  }
+
+  async _handleBookmarkRowDrop(event, targetBookmark) {
+    if (!this._canAcceptBookmarkDrop(targetBookmark.id)) return;
+
+    event.preventDefault();
+    const bookmarkId = this._getDraggedBookmarkId(event);
+    const moved = await this._moveBookmarkBeforeOrAfter(
+      bookmarkId,
+      targetBookmark,
+      this.dragOverPosition
+    );
+    this._clearDragState();
+    if (moved) {
+      await this._reloadBookmarks({ selectedBookmarkId: bookmarkId });
+    }
+  }
+
+  _handleFolderDragOver(event, folder) {
+    if (!this._canAcceptBookmarkDrop()) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    this._setFolderDropTarget(folder.path, folder.mode);
+
+    if (folder.mode === 'folder' && !folder.isLeaf) {
+      this._scheduleFolderDragOpen(folder.path);
+    }
+  }
+
+  _handleFolderDragLeave(event, path, mode = 'folder') {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+    if (this.dragOverFolderId === this._getFolderDropKey(path, mode)) {
+      this._setFolderDropTarget(null, mode);
+    }
+  }
+
+  async _handleFolderDrop(event, path, folderId, mode = 'folder') {
+    if (!this._canAcceptBookmarkDrop()) return;
+
+    event.preventDefault();
+    const bookmarkId = this._getDraggedBookmarkId(event);
+    const targetFolderId = folderId || this._getFolderIdByPath(path);
+    const bookmark = this.bookmarks.bookmarks.find((entry) => entry.id === bookmarkId);
+    this._clearDragState();
+
+    if (
+      !targetFolderId ||
+      !bookmark ||
+      String(bookmark.parentId || '') === String(targetFolderId)
+    ) {
+      return;
+    }
+
+    await this.bookmarks.move(bookmarkId, targetFolderId);
+    this.activeFolderMode = mode === 'root' ? 'root' : 'folder';
+    this.activeFolderPath = mode === 'root' ? '' : path;
+    if (mode === 'folder') {
+      for (const parentPath of this._getParentFolderPaths(path)) {
+        this.expandedFolderPaths.add(this._normalize(parentPath));
+      }
+    }
+    await this._reloadBookmarks({ selectedBookmarkId: bookmarkId });
+  }
+
+  _canAcceptBookmarkDrop(targetBookmarkId = null) {
+    if (!this.draggedBookmarkId) return false;
+    return !targetBookmarkId || String(this.draggedBookmarkId) !== String(targetBookmarkId);
+  }
+
+  _getDraggedBookmarkId(event) {
+    return (
+      event.dataTransfer.getData('application/x-bookmark-id') ||
+      event.dataTransfer.getData('text/plain') ||
+      this.draggedBookmarkId ||
+      ''
+    );
+  }
+
+  async _moveBookmarkBeforeOrAfter(bookmarkId, targetBookmark, position) {
+    const bookmark = this.bookmarks.bookmarks.find((entry) => entry.id === bookmarkId);
+    if (!bookmark || !targetBookmark || bookmark.id === targetBookmark.id) {
+      return false;
+    }
+
+    const parentId = targetBookmark.parentId;
+    if (!parentId) return false;
+
+    let index = targetBookmark.index + (position === 'after' ? 1 : 0);
+    if (String(bookmark.parentId || '') === String(parentId) && bookmark.index < index) {
+      index -= 1;
+    }
+
+    if (String(bookmark.parentId || '') === String(parentId) && bookmark.index === index) {
+      return false;
+    }
+
+    await this.bookmarks.move(bookmarkId, parentId, index);
+    return true;
+  }
+
+  _setRowDropTarget(bookmarkId, position) {
+    if (this.dragOverRowId === bookmarkId && this.dragOverPosition === position) return;
+
+    document.querySelectorAll('.row.drop-before, .row.drop-after').forEach((row) => {
+      row.classList.remove('drop-before', 'drop-after');
+    });
+
+    this.dragOverRowId = bookmarkId;
+    this.dragOverPosition = position;
+    if (!bookmarkId || !position) return;
+
+    const row = document.querySelector(`.row[data-id="${CSS.escape(bookmarkId)}"]`);
+    row?.classList.add(position === 'before' ? 'drop-before' : 'drop-after');
+  }
+
+  _getFolderDropKey(path, mode = 'folder') {
+    return `${mode}:${this._normalize(path)}`;
+  }
+
+  _setFolderDropTarget(path, mode = 'folder') {
+    const key = path == null ? null : this._getFolderDropKey(path, mode);
+    if (this.dragOverFolderId === key) return;
+
+    document.querySelectorAll('.folder-button.drop-target').forEach((button) => {
+      button.classList.remove('drop-target');
+    });
+
+    this.dragOverFolderId = key;
+    if (path == null) return;
+
+    const button = document.querySelector(
+      `.folder-button[data-folder="${CSS.escape(path)}"][data-mode="${CSS.escape(mode)}"]`
+    );
+    button?.classList.add('drop-target');
+  }
+
+  _scheduleFolderDragOpen(path) {
+    const key = this._normalize(path);
+    if (this.expandedFolderPaths.has(key)) return;
+
+    if (this.folderDragOpenTimer) {
+      clearTimeout(this.folderDragOpenTimer);
+    }
+    this.folderDragOpenTimer = window.setTimeout(() => {
+      this.expandedFolderPaths.add(key);
+      this.render(this.currentQuery);
+    }, 500);
+  }
+
+  _clearDragState() {
+    if (this.folderDragOpenTimer) {
+      clearTimeout(this.folderDragOpenTimer);
+    }
+    this.folderDragOpenTimer = null;
+    this.draggedBookmarkId = null;
+    this.dragOverRowId = null;
+    this.dragOverPosition = null;
+    this.dragOverFolderId = null;
+    document.querySelectorAll('.row.dragging, .row.drop-before, .row.drop-after').forEach((row) => {
+      row.classList.remove('dragging', 'drop-before', 'drop-after');
+    });
+    document.querySelectorAll('.folder-button.drop-target').forEach((button) => {
+      button.classList.remove('drop-target');
+    });
   }
 
   _getFaviconCacheKey(url, origin, domain) {
